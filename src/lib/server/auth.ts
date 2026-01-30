@@ -1,26 +1,13 @@
-import NextAuth, { type DefaultSession } from "next-auth";
+import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcrypt";
 import { db } from "./db";
 import { verifyTotp, decryptTotpSecret } from "@/lib/utils/totp";
+import { authConfig } from "@/lib/auth.config";
 
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      email: string;
-      name?: string | null;
-      twoFactorEnabled: boolean;
-    } & DefaultSession["user"];
-  }
-
-  interface User {
-    twoFactorEnabled?: boolean;
-    twoFactorSecret?: string | null;
-  }
-}
-
+// Full auth config with Node.js dependencies (for server-side use only)
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       id: "credentials",
@@ -79,32 +66,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
   ],
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id as string;
-        token.email = user.email as string;
-        token.twoFactorEnabled = (user.twoFactorEnabled ?? false) as boolean;
-        token.twoFactorVerified = true;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
-        session.user.email = token.email as string;
-        session.user.twoFactorEnabled = (token.twoFactorEnabled ?? false) as boolean;
-      }
-      return session;
-    },
-  },
-  secret: process.env.NEXTAUTH_SECRET,
 });
