@@ -108,5 +108,5 @@ export const authConfig: NextAuthConfig = {
   secret: process.env.NEXTAUTH_SECRET,
 };
 
-// Export for middleware (Edge Runtime compatible)
-export const { auth: authMiddleware } = NextAuth(authConfig);
+// Export for proxy (Edge Runtime compatible)
+export const { auth } = NextAuth(authConfig);

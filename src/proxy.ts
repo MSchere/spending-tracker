@@ -1,7 +1,7 @@
-import { authMiddleware } from "@/lib/auth.config";
+import { auth } from "@/lib/auth.config";
 
-// Use the edge-compatible auth middleware
-export default authMiddleware;
+// Use the edge-compatible auth proxy
+export const proxy = auth;
 
 export const config = {
   matcher: [
