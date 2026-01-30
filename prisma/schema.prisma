@@ -1,0 +1,276 @@
+// Spending Tracker - Financial Dashboard Schema
+// Stack: Next.js 16, Prisma, NextAuth, PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// NextAuth Required Models
+// ============================================================================
+
+model User {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  password         String    // bcrypt hashed
+  name             String?
+  twoFactorSecret  String?   // Encrypted TOTP secret
+  twoFactorEnabled Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  wiseProfiles  WiseProfile[]
+  budgets       Budget[]
+  savingsGoals  SavingsGoal[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================================
+// Wise Integration
+// ============================================================================
+
+model WiseProfile {
+  id         String    @id @default(cuid())
+  userId     String
+  profileId  BigInt    @unique // Wise profile ID
+  type       String // PERSONAL or BUSINESS
+  lastSyncAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balances     WiseBalance[]
+  transactions Transaction[]
+}
+
+model WiseBalance {
+  id            String   @id @default(cuid())
+  wiseBalanceId BigInt   @unique // Wise balance ID
+  profileId     String
+  currency      String // ISO currency code
+  amount        Decimal  @db.Decimal(18, 4)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  profile WiseProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================================
+// Core Financial Models
+// ============================================================================
+
+model Transaction {
+  id                 String          @id @default(cuid())
+  wiseRefNumber      String?         @unique // Wise reference for dedup
+  profileId          String
+  type               TransactionType
+  amount             Decimal         @db.Decimal(18, 4)
+  currency           String
+  amountEur          Decimal         @db.Decimal(18, 4) // Converted to EUR
+  description        String?
+  merchant           String?
+  date               DateTime
+  categoryId         String?
+  isRecurring        Boolean         @default(false)
+  recurringExpenseId String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  profile          WiseProfile?      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  category         Category?         @relation(fields: [categoryId], references: [id])
+  recurringExpense RecurringExpense? @relation(fields: [recurringExpenseId], references: [id])
+
+  @@index([date])
+  @@index([categoryId])
+  @@index([type])
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  INVESTMENT
+}
+
+model Category {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  icon      String? // Lucide icon name
+  color     String? // Hex color
+  type      CategoryType
+  isSystem  Boolean      @default(true) // Predefined categories
+  createdAt DateTime     @default(now())
+
+  transactions      Transaction[]
+  budgets           Budget[]
+  keywords          CategoryKeyword[]
+  recurringExpenses RecurringExpense[]
+}
+
+enum CategoryType {
+  FIXED_EXPENSE // Rent, utilities, subscriptions
+  VARIABLE_EXPENSE // Food, clothing, entertainment
+  INCOME // Salary, freelance, etc.
+  INVESTMENT // Index funds, ETFs, stocks, crypto
+  TRANSFER // Internal transfers (not counted in budget)
+}
+
+model CategoryKeyword {
+  id         String @id @default(cuid())
+  categoryId String
+  keyword    String
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, keyword])
+}
+
+model Budget {
+  id         String       @id @default(cuid())
+  userId     String
+  categoryId String
+  amount     Decimal      @db.Decimal(18, 4)
+  currency   String       @default("EUR")
+  period     BudgetPeriod
+  startDate  DateTime
+  isActive   Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+}
+
+enum BudgetPeriod {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+model SavingsGoal {
+  id            String          @id @default(cuid())
+  userId        String
+  name          String
+  targetAmount  Decimal         @db.Decimal(18, 4)
+  currentAmount Decimal         @db.Decimal(18, 4) @default(0)
+  currency      String          @default("EUR")
+  deadline      DateTime?
+  type          SavingsGoalType
+  isCompleted   Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum SavingsGoalType {
+  EMERGENCY_FUND
+  SAVINGS
+  INDEX_FUND
+  ETF
+  STOCK
+  CRYPTO
+}
+
+model RecurringExpense {
+  id          String             @id @default(cuid())
+  name        String
+  amount      Decimal            @db.Decimal(18, 4)
+  currency    String             @default("EUR")
+  frequency   RecurringFrequency
+  nextDueDate DateTime
+  categoryId  String?
+  isActive    Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  category     Category?     @relation(fields: [categoryId], references: [id])
+  transactions Transaction[]
+}
+
+enum RecurringFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+// ============================================================================
+// Exchange Rates & Settings
+// ============================================================================
+
+model ExchangeRate {
+  id           String   @id @default(cuid())
+  fromCurrency String
+  toCurrency   String
+  rate         Decimal  @db.Decimal(18, 8)
+  date         DateTime @db.Date
+  createdAt    DateTime @default(now())
+
+  @@unique([fromCurrency, toCurrency, date])
+}
+
+model AppSettings {
+  id                  String    @id @default("settings")
+  wiseProfileId       BigInt? // Can be auto-detected
+  primaryCurrency     String    @default("EUR")
+  emergencyFundMonths Int       @default(6)
+  syncIntervalHours   Int       @default(6)
+  lastSyncAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model SyncLog {
+  id                String     @id @default(cuid())
+  status            SyncStatus
+  transactionsAdded Int        @default(0)
+  errorMessage      String?
+  createdAt         DateTime   @default(now())
+}
+
+enum SyncStatus {
+  SUCCESS
+  FAILED
+  PARTIAL
+}

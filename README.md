@@ -1,0 +1,244 @@
+# Spending Tracker
+
+A self-hosted personal finance dashboard that connects to the Wise API for automatic expense tracking, budget management, savings goals, and financial metrics visualization.
+
+## Features
+
+- **Wise Integration**: Automatically sync transactions from your Wise account
+- **Transaction Management**: View, search, filter, and categorize transactions
+- **Budget Tracking**: Set monthly budgets per category with progress visualization
+- **Savings Goals**: Track progress toward financial goals
+- **Recurring Expenses**: Monitor regular payments and subscriptions
+- **Dashboard**: Visual overview with charts for cash flow, spending by category, and budget progress
+- **Secure Authentication**: Email/password with mandatory TOTP 2FA
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router, TypeScript)
+- **Database**: PostgreSQL 16
+- **ORM**: Prisma 7
+- **Authentication**: NextAuth.js v5 with mandatory TOTP 2FA
+- **Styling**: Tailwind CSS v4 + ShadCN/ui
+- **Charts**: ShadCN Charts (Recharts-based)
+- **Package Manager**: pnpm
+
+## Prerequisites
+
+- Node.js 22+
+- pnpm 9+
+- Docker & Docker Compose (for database/deployment)
+- Wise Personal API Token ([Get one here](https://wise.com/settings/api-tokens))
+
+## Development Setup
+
+### 1. Clone and Install
+
+```bash
+git clone <repository-url>
+cd spending_tracker
+pnpm install
+```
+
+### 2. Configure Environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and fill in the required values:
+
+```env
+# Database (for local dev, matches docker/compose.dev.yml)
+DATABASE_URL="postgresql://spending:spending_password@localhost:5432/spending_tracker"
+
+# NextAuth (generate secret: openssl rand -base64 32)
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="your-secret-here"
+
+# Encryption key for 2FA secrets (exactly 32 characters)
+ENCRYPTION_KEY="your-32-character-encryption-key"
+
+# Wise API
+WISE_API_TOKEN="your-wise-api-token"
+WISE_ENVIRONMENT="production"  # or "sandbox" for testing
+```
+
+### 3. Start Database
+
+```bash
+docker compose -f docker/compose.dev.yml up -d
+```
+
+### 4. Initialize Database
+
+```bash
+pnpm db:generate    # Generate Prisma client
+pnpm db:migrate     # Run migrations
+pnpm db:seed        # Seed default categories
+```
+
+### 5. Start Development Server
+
+```bash
+pnpm dev
+```
+
+Visit [http://localhost:3000](http://localhost:3000)
+
+## Production Deployment
+
+### Docker Compose (Recommended)
+
+1. **Configure environment**:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with production values:
+
+```env
+# Database
+POSTGRES_USER="spending"
+POSTGRES_PASSWORD="secure-password-here"
+POSTGRES_DB="spending_tracker"
+
+# NextAuth
+NEXTAUTH_URL="https://your-domain.com"
+NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
+
+# Encryption (exactly 32 characters)
+ENCRYPTION_KEY="generate-32-char-key-here"
+
+# Wise API
+WISE_API_TOKEN="your-wise-api-token"
+WISE_ENVIRONMENT="production"
+
+# Optional
+APP_PORT="3000"
+```
+
+2. **Deploy**:
+
+```bash
+docker compose -f docker/compose.yml up -d
+```
+
+3. **Seed the database** (first time only):
+
+```bash
+docker compose -f docker/compose.yml exec app npx tsx prisma/seed.ts
+```
+
+4. **Access** at `http://localhost:3000` (or your configured port)
+
+### Reverse Proxy (Optional)
+
+For production, place behind a reverse proxy (nginx, Traefik, Caddy) with SSL.
+
+Example nginx config:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+## Available Scripts
+
+| Command              | Description                        |
+| -------------------- | ---------------------------------- |
+| `pnpm dev`           | Start development server           |
+| `pnpm build`         | Build for production               |
+| `pnpm start`         | Start production server            |
+| `pnpm lint`          | Run ESLint                         |
+| `pnpm format`        | Format code with Prettier          |
+| `pnpm format:check`  | Check formatting                   |
+| `pnpm typecheck`     | Run TypeScript type checking       |
+| `pnpm db:generate`   | Generate Prisma client             |
+| `pnpm db:migrate`    | Run database migrations            |
+| `pnpm db:push`       | Push schema changes (development)  |
+| `pnpm db:studio`     | Open Prisma Studio                 |
+| `pnpm db:seed`       | Seed default categories            |
+
+## Project Structure
+
+```
+spending_tracker/
+├── docker/                 # Docker configuration
+│   ├── Dockerfile          # Production multi-stage build
+│   ├── compose.yml         # Production compose (app + db)
+│   ├── compose.dev.yml     # Development compose (db only)
+│   └── entrypoint.sh       # Container startup script
+├── prisma/
+│   ├── schema.prisma       # Database schema
+│   └── seed.ts             # Database seeder
+├── src/
+│   ├── app/                # Next.js App Router pages
+│   │   ├── (auth)/         # Auth pages (login, register, 2fa)
+│   │   ├── (authenticated)/ # Protected pages
+│   │   └── api/            # API routes
+│   ├── components/
+│   │   ├── charts/         # Dashboard chart components
+│   │   ├── layout/         # Layout components
+│   │   └── ui/             # ShadCN UI components
+│   └── lib/
+│       ├── server/         # Server-side utilities
+│       │   ├── auth/       # NextAuth configuration
+│       │   ├── db/         # Prisma client
+│       │   └── wise/       # Wise API client & sync
+│       └── utils.ts        # Shared utilities
+└── .env.example            # Environment template
+```
+
+## First-Time Setup
+
+1. Register an account at `/register`
+2. Set up 2FA (mandatory) - scan QR code with authenticator app
+3. Go to Settings and add your Wise API token
+4. Click "Sync Now" to import transactions
+5. View your dashboard!
+
+## Updating
+
+```bash
+# Pull latest changes
+git pull
+
+# Update dependencies
+pnpm install
+
+# Run migrations
+pnpm db:migrate
+
+# Rebuild (if using Docker)
+docker compose -f docker/compose.yml up -d --build
+```
+
+## Security Notes
+
+- 2FA is **mandatory** for all accounts
+- 2FA secrets are encrypted with AES-256-GCM
+- Wise API tokens are stored encrypted
+- All routes except auth pages require authentication
+- Passwords are hashed with bcrypt
+
+## License
+
+MIT

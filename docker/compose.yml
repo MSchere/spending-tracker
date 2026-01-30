@@ -1,0 +1,79 @@
+# =============================================================================
+# Spending Tracker - Production Docker Compose
+# =============================================================================
+#
+# Usage:
+#   1. Copy .env.example to .env and fill in values
+#   2. Run: docker compose -f docker/compose.yml up -d
+#   3. Access at http://localhost:3000
+#
+# First time setup:
+#   After containers start, seed the database:
+#   docker compose -f docker/compose.yml exec app npx tsx prisma/seed.ts
+#
+# =============================================================================
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: spending_tracker_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spending}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password required}
+      POSTGRES_DB: ${POSTGRES_DB:-spending_tracker}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-spending} -d ${POSTGRES_DB:-spending_tracker}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spending_network
+
+  # Next.js Application
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: spending_tracker_app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      # Database connection (internal Docker network)
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-spending}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-spending_tracker}"
+
+      # NextAuth
+      NEXTAUTH_URL: ${NEXTAUTH_URL:?NextAuth URL required}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NextAuth secret required}
+
+      # Encryption
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Encryption key required}
+
+      # Wise API
+      WISE_API_TOKEN: ${WISE_API_TOKEN:-}
+      WISE_ENVIRONMENT: ${WISE_ENVIRONMENT:-production}
+
+      # App settings
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Spending Tracker}
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - spending_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  spending_network:
+    driver: bridge

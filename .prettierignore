@@ -1,0 +1,25 @@
+# Dependencies
+node_modules
+pnpm-lock.yaml
+
+# Build outputs
+.next
+out
+dist
+build
+
+# Generated files
+.prisma
+prisma/generated
+
+# Cache and logs
+.cache
+*.log
+
+# Environment files
+.env*
+!.env.example
+
+# IDE
+.idea
+.vscode
