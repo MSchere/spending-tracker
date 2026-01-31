@@ -35,7 +35,18 @@ export async function generateQrCodeDataUrl(
  * Verify a TOTP token against a secret
  */
 export function verifyTotp(token: string, secret: string): boolean {
-  const result = verifySync({ token, secret });
+  // Sanitize token: remove any non-digit characters and trim
+  const sanitizedToken = token.replace(/\D/g, "").trim();
+
+  // Validate token length
+  if (sanitizedToken.length !== 6) {
+    console.error(
+      `TOTP validation failed: expected 6 digits, got ${sanitizedToken.length}`
+    );
+    return false;
+  }
+
+  const result = verifySync({ token: sanitizedToken, secret });
   return result.valid;
 }
 

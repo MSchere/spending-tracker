@@ -5,42 +5,15 @@
 
 import { db } from "../db";
 import { getWiseClient } from "./client";
-import type { WiseApiTransaction } from "./types";
+import type { WiseApiActivity } from "./types";
 import { Decimal } from "decimal.js";
-import { subMonths } from "date-fns";
+import { subYears } from "date-fns";
 
 /**
- * Map Wise transaction type to our TransactionType enum
+ * Auto-categorize a transaction based on description keywords
  */
-function mapTransactionType(
-  wiseType: "CREDIT" | "DEBIT",
-  detailType: string
-): "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT" {
-  // Internal transfers between Wise balances
-  if (
-    detailType === "BALANCE_TRANSFER" ||
-    detailType === "BALANCE_CONVERSION"
-  ) {
-    return "TRANSFER";
-  }
-
-  // Credits are income
-  if (wiseType === "CREDIT") {
-    return "INCOME";
-  }
-
-  // Debits are expenses
-  return "EXPENSE";
-}
-
-/**
- * Auto-categorize a transaction based on merchant/description keywords
- */
-async function autoCategorize(
-  description: string,
-  merchant: string | null
-): Promise<string | null> {
-  const searchText = `${description} ${merchant || ""}`.toLowerCase();
+async function autoCategorize(description: string): Promise<string | null> {
+  const searchText = description.toLowerCase();
 
   // Get all category keywords
   const keywords = await db.categoryKeyword.findMany({
@@ -100,60 +73,150 @@ async function getExchangeRate(
 }
 
 /**
- * Process a single transaction from Wise
+ * Parse amount string from Activity API
+ * Examples: "150 JPY", "-25.50 EUR", "+100.00 GBP", "<positive>+ 3,070.68 EUR</positive>"
+ * Returns the value, currency, and whether it's marked as positive (income)
  */
-async function processTransaction(
-  transaction: WiseApiTransaction,
+function parseActivityAmount(amountStr: string): { value: number; currency: string; isPositive: boolean } | null {
+  if (!amountStr) return null;
+  
+  // Check if wrapped in <positive> tag (indicates incoming money)
+  const isPositive = amountStr.includes("<positive>");
+  
+  // Remove HTML tags
+  const cleanStr = amountStr.replace(/<[^>]*>/g, "").trim();
+  
+  // Match patterns like "150 JPY", "-25.50 EUR", "+100.00 GBP", "+ 3,070.68 EUR"
+  const match = cleanStr.match(/^([+-]?)\s*([\d,]+\.?\d*)\s*([A-Z]{3})$/);
+  if (!match) return null;
+  
+  const sign = match[1];
+  const value = parseFloat(match[2].replace(/,/g, ""));
+  const currency = match[3];
+  
+  // If there's an explicit + sign or <positive> tag, it's positive (income)
+  const finalIsPositive = isPositive || sign === "+";
+  
+  return { value, currency, isPositive: finalIsPositive };
+}
+
+/**
+ * Determine transaction type based on Wise activity type and amount direction
+ * The <positive> tag or + sign in the amount indicates incoming money
+ * Returns null if the activity should be skipped
+ */
+function determineTransactionType(
+  activityType: string,
+  isPositiveAmount: boolean
+): "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT" | null {
+  // Skip - not real transactions
+  if (activityType === "CARD_CHECK") {
+    return null;
+  }
+
+  // Transfers between own balances
+  if (activityType === "INTERBALANCE" || activityType === "CONVERSION" || activityType === "AUTO_CONVERSION") {
+    return "TRANSFER";
+  }
+
+  // For TRANSFER type, use the amount sign to determine direction
+  // Wise uses TRANSFER for both incoming and outgoing transfers
+  if (activityType === "TRANSFER") {
+    return isPositiveAmount ? "INCOME" : "EXPENSE";
+  }
+
+  // Explicit income types
+  if (activityType === "BALANCE_DEPOSIT" || activityType === "BALANCE_CASHBACK" || 
+      activityType === "INCOMING_PAYMENT" || activityType === "MONEY_ADDED") {
+    return "INCOME";
+  }
+
+  // Card payments and direct debits can be refunds if positive
+  // A positive CARD_PAYMENT is a refund (money coming back to you)
+  if (activityType === "CARD_PAYMENT" || activityType === "DIRECT_DEBIT_TRANSACTION") {
+    return isPositiveAmount ? "INCOME" : "EXPENSE";
+  }
+
+  // Explicit expense types (fees are always expenses)
+  if (activityType === "BALANCE_ASSET_FEE") {
+    return "EXPENSE";
+  }
+
+  // For unknown types, use the amount direction
+  console.log(`Unknown activity type: ${activityType}, using amount direction`);
+  return isPositiveAmount ? "INCOME" : "EXPENSE";
+}
+
+/**
+ * Process a single activity from Wise Activity API
+ */
+async function processActivity(
+  activity: WiseApiActivity,
   profileId: string
 ): Promise<{ created: boolean; id: string }> {
-  // Check if transaction already exists
+  // Use activity ID as reference (it's unique)
+  const refNumber = `activity-${activity.id}`;
+  
+  // Check if already exists
   const existing = await db.transaction.findUnique({
-    where: { wiseRefNumber: transaction.referenceNumber },
+    where: { wiseRefNumber: refNumber },
   });
 
   if (existing) {
     return { created: false, id: existing.id };
   }
 
-  const currency = transaction.amount.currency;
-  const amount = transaction.amount.value;
-  const date = new Date(transaction.date);
+  // Only process completed activities
+  if (activity.status !== "COMPLETED") {
+    return { created: false, id: "" };
+  }
+
+  // Parse the primary amount
+  const parsedAmount = parseActivityAmount(activity.primaryAmount);
+  if (!parsedAmount) {
+    console.warn(`Could not parse activity amount: ${activity.primaryAmount}`);
+    return { created: false, id: "" };
+  }
+
+  const { value: amount, currency, isPositive } = parsedAmount;
+  const date = new Date(activity.createdOn);
 
   // Get EUR equivalent
   let amountEur = amount;
   if (currency !== "EUR") {
-    const rate = await getExchangeRate(currency, "EUR", date);
-    amountEur = amount * rate;
+    try {
+      const rate = await getExchangeRate(currency, "EUR", date);
+      amountEur = amount * rate;
+    } catch {
+      // If exchange rate fails, use the amount as-is
+      amountEur = amount;
+    }
   }
 
-  // Extract merchant info
-  const merchant = transaction.details.merchant?.name || null;
-  const description =
-    transaction.details.description ||
-    transaction.details.paymentReference ||
-    merchant ||
-    "Unknown transaction";
+  // Clean title for description (remove HTML tags)
+  const description = activity.title.replace(/<[^>]*>/g, "").trim() || activity.description || "Unknown transaction";
 
   // Auto-categorize
-  const categoryId = await autoCategorize(description, merchant);
+  const categoryId = await autoCategorize(description);
 
-  // Map transaction type
-  const type = mapTransactionType(
-    transaction.type,
-    transaction.details.type
-  );
+  // Determine transaction type based on activity type and amount direction
+  const type = determineTransactionType(activity.type, isPositive);
+  
+  // Skip activities that don't represent real transactions (e.g., CARD_CHECK)
+  if (type === null) {
+    return { created: false, id: "" };
+  }
 
   // Create transaction
   const created = await db.transaction.create({
     data: {
-      wiseRefNumber: transaction.referenceNumber,
+      wiseRefNumber: refNumber,
       profileId,
       type,
-      amount: new Decimal(amount),
+      amount: new Decimal(Math.abs(amount)),
       currency,
-      amountEur: new Decimal(amountEur),
+      amountEur: new Decimal(Math.abs(amountEur)),
       description,
-      merchant,
       date,
       categoryId,
     },
@@ -217,34 +280,32 @@ export async function syncWiseData(userId: string): Promise<SyncResult> {
           },
         });
         balancesUpdated++;
+      }
 
-        // Get transactions for the last 3 months
-        const endDate = new Date();
-        const startDate = subMonths(endDate, 3);
+      // Get all historical transactions using Activity API
+      // Wise typically has data going back several years
+      const endDate = new Date();
+      const startDate = subYears(endDate, 10); // Fetch up to 10 years of history
 
-        try {
-          const statement = await client.getStatement(
-            apiProfile.id,
-            apiBalance.id,
-            apiBalance.currency,
-            startDate,
-            endDate
-          );
+      try {
+        const activities = await client.getAllActivities(
+          apiProfile.id,
+          startDate,
+          endDate
+        );
 
-          // Process each transaction
-          for (const tx of statement.transactions) {
-            const result = await processTransaction(tx, profile.id);
-            if (result.created) {
-              transactionsAdded++;
-            }
+        for (const activity of activities) {
+          const result = await processActivity(activity, profile.id);
+          if (result.created) {
+            transactionsAdded++;
           }
-        } catch (error) {
-          // Some balances may not support statements
-          console.warn(
-            `Could not fetch statement for balance ${apiBalance.id}:`,
-            error
-          );
         }
+        console.log(`Synced ${activities.length} activities for profile ${apiProfile.id}`);
+      } catch (activityError) {
+        console.error(
+          `Activity API failed for profile ${apiProfile.id}:`,
+          activityError
+        );
       }
 
       // Update last sync time

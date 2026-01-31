@@ -72,7 +72,7 @@ export default function RegisterPage() {
           Enter your details to create your account
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-8">
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
@@ -105,6 +105,7 @@ export default function RegisterPage() {
               id="password"
               type="password"
               value={password}
+              placeholder="********"
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={isLoading}
@@ -121,6 +122,7 @@ export default function RegisterPage() {
               id="confirmPassword"
               type="password"
               value={confirmPassword}
+              placeholder="********"
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               disabled={isLoading}

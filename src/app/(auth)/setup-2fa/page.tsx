@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ export default function Setup2FAPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const userId = searchParams.get("userId");
+  const formRef = useRef<HTMLFormElement>(null);
 
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
@@ -84,9 +85,9 @@ export default function Setup2FAPage() {
       }
 
       toast.success("2FA enabled successfully! Please sign in.");
-      
-      // Redirect to login page
-      router.push("/login");
+
+      // Redirect to login page with email pre-filled
+      router.push(`/login?email=${encodeURIComponent(data.email)}`);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "An unexpected error occurred"
@@ -117,7 +118,7 @@ export default function Setup2FAPage() {
           authentication
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleVerify}>
+      <form ref={formRef} onSubmit={handleVerify} className="flex flex-col gap-8">
         <CardContent className="space-y-6">
           {/* QR Code */}
           <div className="flex justify-center">
@@ -171,6 +172,9 @@ export default function Setup2FAPage() {
                 maxLength={6}
                 value={totpCode}
                 onChange={(value) => setTotpCode(value)}
+                onComplete={() => {
+                  formRef.current?.requestSubmit();
+                }}
                 disabled={isLoading || isVerifying}
               >
                 <InputOTPGroup>

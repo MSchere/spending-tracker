@@ -26,7 +26,6 @@ async function getSettingsData(userId: string) {
     appSettings: appSettings
       ? {
           primaryCurrency: appSettings.primaryCurrency,
-          emergencyFundMonths: appSettings.emergencyFundMonths,
           lastSyncAt: appSettings.lastSyncAt?.toISOString() || null,
         }
       : null,

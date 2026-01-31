@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
@@ -27,8 +27,10 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const prefillEmail = searchParams.get("email") || "";
 
-  const [email, setEmail] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
+  const [email, setEmail] = useState(prefillEmail);
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -47,11 +49,20 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        if (result.error === "2FA_REQUIRED") {
+        // NextAuth v5 uses error codes from CredentialsSignin subclasses
+        if (
+          result.error === "2FA_REQUIRED" ||
+          result.code === "2FA_REQUIRED"
+        ) {
           setRequires2FA(true);
           toast.info("Enter your 2FA code to continue");
-        } else if (result.error === "CredentialsSignin") {
+        } else if (
+          result.error === "CredentialsSignin" ||
+          result.code === "invalid_credentials"
+        ) {
           toast.error("Invalid email or password");
+        } else if (result.code === "invalid_2fa_code") {
+          toast.error("Invalid 2FA code");
         } else {
           toast.error(result.error);
         }
@@ -77,7 +88,7 @@ export default function LoginPage() {
             : "Enter your email and password to sign in"}
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
+      <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-8">
         <CardContent className="space-y-4">
           {!requires2FA ? (
             <>
@@ -99,6 +110,7 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type="password"
+                  placeholder="********"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -115,6 +127,9 @@ export default function LoginPage() {
                   maxLength={6}
                   value={totpCode}
                   onChange={(value) => setTotpCode(value)}
+                  onComplete={() => {
+                    formRef.current?.requestSubmit();
+                  }}
                   disabled={isLoading}
                 >
                   <InputOTPGroup>

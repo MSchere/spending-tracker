@@ -1,7 +1,34 @@
+"use client";
+
+import Link from "next/link";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { Separator } from "@/components/ui/separator";
+import { PrivateModeProvider, usePrivateMode } from "@/components/providers/private-mode-provider";
+import { Button } from "@/components/ui/button";
+import { Eye, EyeOff, PiggyBank } from "lucide-react";
+
+function PrivateModeToggle() {
+  const { isPrivate, togglePrivateMode } = usePrivateMode();
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={togglePrivateMode}
+      title={isPrivate ? "Show balances" : "Hide balances"}
+    >
+      {isPrivate ? (
+        <EyeOff className="h-5 w-5" />
+      ) : (
+        <Eye className="h-5 w-5" />
+      )}
+      <span className="sr-only">
+        {isPrivate ? "Show balances" : "Hide balances"}
+      </span>
+    </Button>
+  );
+}
 
 export default function AuthenticatedLayout({
   children,
@@ -9,17 +36,25 @@ export default function AuthenticatedLayout({
   children: React.ReactNode;
 }) {
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <main className="flex-1 flex flex-col min-h-screen">
-        <header className="flex h-14 items-center gap-4 border-b px-4 lg:px-6">
+    <PrivateModeProvider>
+      <SidebarProvider>
+        {/* Fixed header spanning full width */}
+        <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center gap-4 border-b bg-sidebar px-4 lg:px-6">
           <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="h-6" />
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <PiggyBank className="h-6 w-6" />
+            <span className="font-semibold text-lg">Spending Tracker</span>
+          </Link>
           <div className="flex-1" />
+          <PrivateModeToggle />
           <ThemeToggle />
         </header>
-        <div className="flex-1 p-4 lg:p-6">{children}</div>
-      </main>
-    </SidebarProvider>
+        {/* Sidebar starts below header */}
+        <AppSidebar />
+        <div className="flex-1 flex flex-col min-h-screen w-full pt-14">
+          <main className="flex-1 p-4 lg:p-6">{children}</main>
+        </div>
+      </SidebarProvider>
+    </PrivateModeProvider>
   );
 }

@@ -11,7 +11,6 @@ import {
   CalendarClock,
   Settings,
   LogOut,
-  RefreshCw,
   Loader2,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -23,13 +22,13 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { WiseIcon } from "@/components/icons/wise-icon";
 
 const navigation = [
   {
@@ -89,14 +88,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="border-b px-6 py-4">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <PiggyBank className="h-6 w-6" />
-          <span className="font-semibold text-lg">Spending Tracker</span>
-        </Link>
-      </SidebarHeader>
-
-      <SidebarContent>
+      <SidebarContent className="pt-4">
         {navigation.map((group) => (
           <SidebarGroup key={group.title}>
             <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
@@ -124,16 +116,15 @@ export function AppSidebar() {
       <SidebarFooter className="border-t p-4">
         <div className="flex flex-col gap-2">
           <Button
-            variant="outline"
             size="sm"
-            className="w-full justify-start gap-2"
+            className="w-full justify-start gap-4 bg-[#9FE870] hover:bg-[#8BD85F] text-black"
             onClick={handleSync}
             disabled={isSyncing}
           >
             {isSyncing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <RefreshCw className="h-4 w-4" />
+              <WiseIcon className="h-4 w-4" />
             )}
             {isSyncing ? "Syncing..." : "Sync with Wise"}
           </Button>

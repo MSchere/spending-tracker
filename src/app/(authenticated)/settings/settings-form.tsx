@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ShieldCheck, User, Wifi, WifiOff } from "lucide-react";
+import { WiseIcon } from "@/components/icons/wise-icon";
 
 interface SettingsFormProps {
   user: {
@@ -20,7 +21,6 @@ interface SettingsFormProps {
   } | null;
   appSettings: {
     primaryCurrency: string;
-    emergencyFundMonths: number;
     lastSyncAt: string | null;
   } | null;
   lastSyncStatus: string | null;
@@ -75,7 +75,7 @@ export function SettingsForm({
         <CardHeader>
           <div className="flex items-center gap-2">
             {wiseConfigured ? (
-              <Wifi className="h-5 w-5 text-green-600" />
+              <WiseIcon className="h-5 w-5 text-[#9FE870]" />
             ) : (
               <WifiOff className="h-5 w-5 text-muted-foreground" />
             )}
@@ -138,13 +138,6 @@ export function SettingsForm({
             <Badge variant="outline">
               {appSettings?.primaryCurrency || "EUR"}
             </Badge>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Emergency Fund Target</span>
-            <span className="text-sm text-muted-foreground">
-              {appSettings?.emergencyFundMonths || 6} months of expenses
-            </span>
           </div>
         </CardContent>
       </Card>

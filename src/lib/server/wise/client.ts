@@ -5,9 +5,9 @@
 import type {
   WiseApiProfile,
   WiseApiBalance,
-  WiseApiStatementResponse,
   WiseApiExchangeRate,
   WiseApiError,
+  WiseApiActivityResponse,
 } from "./types";
 
 const WISE_API_URL =
@@ -75,27 +75,6 @@ export class WiseClient {
   }
 
   /**
-   * Get statement (transactions) for a balance account
-   */
-  async getStatement(
-    profileId: number,
-    balanceId: number,
-    currency: string,
-    startDate: Date,
-    endDate: Date
-  ): Promise<WiseApiStatementResponse> {
-    const params = new URLSearchParams({
-      currency,
-      intervalStart: startDate.toISOString(),
-      intervalEnd: endDate.toISOString(),
-    });
-
-    return this.request<WiseApiStatementResponse>(
-      `/v1/profiles/${profileId}/balance-statements/${balanceId}/statement.json?${params}`
-    );
-  }
-
-  /**
    * Get exchange rates
    */
   async getExchangeRates(
@@ -115,6 +94,60 @@ export class WiseClient {
       throw new Error(`No exchange rate found for ${source}/${target}`);
     }
     return rates[0].rate;
+  }
+
+  /**
+   * Get activities for a profile (works with read-only tokens)
+   * This is an alternative to Balance Statements that doesn't require write permissions
+   */
+  async getActivities(
+    profileId: number,
+    startDate: Date,
+    endDate: Date,
+    size: number = 100
+  ): Promise<WiseApiActivityResponse> {
+    const params = new URLSearchParams({
+      since: startDate.toISOString(),
+      until: endDate.toISOString(),
+      size: size.toString(),
+    });
+
+    return this.request<WiseApiActivityResponse>(
+      `/v1/profiles/${profileId}/activities?${params}`
+    );
+  }
+
+  /**
+   * Get all activities with pagination
+   */
+  async getAllActivities(
+    profileId: number,
+    startDate: Date,
+    endDate: Date
+  ): Promise<WiseApiActivityResponse["activities"]> {
+    const allActivities: WiseApiActivityResponse["activities"] = [];
+    let cursor: string | null = null;
+
+    do {
+      const params = new URLSearchParams({
+        since: startDate.toISOString(),
+        until: endDate.toISOString(),
+        size: "100",
+      });
+
+      if (cursor) {
+        params.set("nextCursor", cursor);
+      }
+
+      const response = await this.request<WiseApiActivityResponse>(
+        `/v1/profiles/${profileId}/activities?${params}`
+      );
+
+      allActivities.push(...response.activities);
+      cursor = response.cursor;
+    } while (cursor);
+
+    return allActivities;
   }
 }
 

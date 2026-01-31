@@ -56,10 +56,10 @@ export function BudgetProgressChart({ data }: BudgetProgressChartProps) {
       >
         <XAxis
           type="number"
-          domain={[0, (dataMax: number) => Math.max(dataMax * 1.1, 100)]}
+          domain={[0, (dataMax: number) => Math.ceil(Math.max(dataMax * 1.1, 100))]}
           tickLine={false}
           axisLine={false}
-          tickFormatter={(value) => `${value}%`}
+          tickFormatter={(value) => `${Math.round(value)}%`}
         />
         <YAxis
           type="category"

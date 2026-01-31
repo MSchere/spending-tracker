@@ -39,6 +39,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Combobox } from "@/components/ui/combobox";
 import { Plus, Loader2, Trash2, CalendarClock } from "lucide-react";
 
 interface RecurringExpense {
@@ -55,6 +56,7 @@ interface RecurringExpense {
 interface Category {
   id: string;
   name: string;
+  color: string | null;
 }
 
 interface RecurringListProps {
@@ -100,7 +102,7 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
           amount: parseFloat(amount),
           frequency,
           nextDueDate,
-          categoryId: categoryId || null,
+          categoryId: categoryId === "none" ? null : categoryId || null,
         }),
       });
 
@@ -259,19 +261,21 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
 
             <div className="space-y-2">
               <Label htmlFor="category">Category (optional)</Label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">None</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={[
+                  { value: "none", label: "None" },
+                  ...categories.map((cat) => ({
+                    value: cat.id,
+                    label: cat.name,
+                    color: cat.color || undefined,
+                  })),
+                ]}
+                value={categoryId}
+                onValueChange={setCategoryId}
+                placeholder="Select a category"
+                searchPlaceholder="Search categories..."
+                emptyText="No category found."
+              />
             </div>
           </div>
 

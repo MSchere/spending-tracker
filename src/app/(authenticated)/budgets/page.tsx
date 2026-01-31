@@ -27,11 +27,12 @@ async function getBudgetsData(userId: string) {
   // Calculate spending for each budget category this month
   const budgetsWithSpending = await Promise.all(
     budgets.map(async (budget) => {
+      // Get both expenses and refunds (income) for this category
       const transactions = await db.transaction.findMany({
         where: {
           profileId: { in: profileIds },
           categoryId: budget.categoryId,
-          type: "EXPENSE",
+          type: { in: ["EXPENSE", "INCOME"] },
           date: {
             gte: monthStart,
             lte: monthEnd,
@@ -39,10 +40,12 @@ async function getBudgetsData(userId: string) {
         },
       });
 
-      const spent = transactions.reduce(
-        (sum, t) => sum + Math.abs(t.amountEur.toNumber()),
-        0
-      );
+      // Calculate net spending: expenses minus refunds
+      const spent = transactions.reduce((sum, t) => {
+        const amount = Math.abs(t.amountEur.toNumber());
+        // Subtract refunds (INCOME) from the total
+        return t.type === "EXPENSE" ? sum + amount : sum - amount;
+      }, 0);
 
       return {
         id: budget.id,
@@ -50,7 +53,7 @@ async function getBudgetsData(userId: string) {
         categoryName: budget.category.name,
         categoryColor: budget.category.color,
         amount: budget.amount.toNumber(),
-        spent,
+        spent: Math.max(0, spent), // Don't show negative spending
         period: budget.period,
         isActive: budget.isActive,
       };

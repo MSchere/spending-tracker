@@ -22,6 +22,8 @@ const defaultCategories = [
   { name: "Gym", icon: "Dumbbell", color: "#10B981", type: CategoryType.FIXED_EXPENSE },
   { name: "Phone", icon: "Smartphone", color: "#6366F1", type: CategoryType.FIXED_EXPENSE },
   { name: "Insurance", icon: "Shield", color: "#EC4899", type: CategoryType.FIXED_EXPENSE },
+  { name: "Subscriptions", icon: "RefreshCw", color: "#7C3AED", type: CategoryType.FIXED_EXPENSE },
+  { name: "Buy Now Pay Later", icon: "Clock", color: "#B45309", type: CategoryType.FIXED_EXPENSE },
 
   // Variable Expenses (Budgetable)
   { name: "Food", icon: "ShoppingCart", color: "#22C55E", type: CategoryType.VARIABLE_EXPENSE },
@@ -30,8 +32,19 @@ const defaultCategories = [
   { name: "Restaurants", icon: "UtensilsCrossed", color: "#F97316", type: CategoryType.VARIABLE_EXPENSE },
   { name: "Bars", icon: "Wine", color: "#DC2626", type: CategoryType.VARIABLE_EXPENSE },
   { name: "Travel", icon: "Plane", color: "#0EA5E9", type: CategoryType.VARIABLE_EXPENSE },
+  { name: "Transport", icon: "Car", color: "#0891B2", type: CategoryType.VARIABLE_EXPENSE },
+  { name: "Car", icon: "Wrench", color: "#78716C", type: CategoryType.VARIABLE_EXPENSE },
   { name: "Entertainment", icon: "Gamepad2", color: "#8B5CF6", type: CategoryType.VARIABLE_EXPENSE },
   { name: "Healthcare", icon: "Heart", color: "#EF4444", type: CategoryType.VARIABLE_EXPENSE },
+  { name: "Personal Care", icon: "Scissors", color: "#F472B6", type: CategoryType.VARIABLE_EXPENSE },
+  { name: "Furniture", icon: "Sofa", color: "#A16207", type: CategoryType.VARIABLE_EXPENSE },
+  { name: "Home Maintenance", icon: "Hammer", color: "#EA580C", type: CategoryType.VARIABLE_EXPENSE },
+  { name: "Education", icon: "GraduationCap", color: "#4F46E5", type: CategoryType.VARIABLE_EXPENSE },
+  { name: "Pets", icon: "PawPrint", color: "#CA8A04", type: CategoryType.VARIABLE_EXPENSE },
+  { name: "Gifts", icon: "Gift", color: "#E11D48", type: CategoryType.VARIABLE_EXPENSE },
+  { name: "Donations", icon: "HeartHandshake", color: "#16A34A", type: CategoryType.VARIABLE_EXPENSE },
+  { name: "Taxes", icon: "Receipt", color: "#1E3A8A", type: CategoryType.VARIABLE_EXPENSE },
+  { name: "Fees", icon: "CreditCard", color: "#991B1B", type: CategoryType.VARIABLE_EXPENSE },
   { name: "Other Expenses", icon: "HelpCircle", color: "#94A3B8", type: CategoryType.VARIABLE_EXPENSE },
 
   // Income
@@ -54,15 +67,26 @@ const categoryKeywords: Record<string, string[]> = {
   "Food": ["supermarket", "grocery", "mercadona", "lidl", "aldi", "carrefour", "eroski", "dia"],
   "Restaurants": ["restaurant", "cafe", "coffee", "mcdonald", "burger", "pizza", "sushi", "bar restaurante"],
   "Bars": ["bar", "pub", "nightclub", "club", "cerveceria"],
-  "Transportation": ["uber", "taxi", "cabify", "bolt", "metro", "bus", "train", "renfe", "gas station", "fuel"],
+  "Transport": ["uber", "taxi", "cabify", "bolt", "metro", "bus", "train", "renfe", "blablacar", "freenow"],
+  "Car": ["gas station", "fuel", "gasolinera", "repsol", "cepsa", "shell", "bp", "mechanic", "taller", "parking", "autolavado"],
   "Tech": ["amazon", "apple", "mediamarkt", "pccomponentes", "aliexpress"],
-  "Entertainment": ["netflix", "spotify", "hbo", "disney", "cinema", "steam", "playstation", "xbox"],
+  "Entertainment": ["cinema", "steam", "playstation", "xbox", "gaming"],
+  "Subscriptions": ["netflix", "spotify", "hbo", "disney", "youtube premium", "prime video", "github", "copilot", "openai", "chatgpt", "apple music", "dazn", "crunchyroll"],
+  "Buy Now Pay Later": ["paypal bnpl", "klarna", "afterpay", "clearpay", "sequra", "aplazame"],
   "Gym": ["gym", "fitness", "gimnasio"],
-  "Phone": ["vodafone", "movistar", "orange", "yoigo", "o2"],
+  "Phone": ["vodafone", "movistar", "orange", "yoigo", "o2", "simyo", "pepephone"],
   "Internet": ["internet", "fiber", "fibra"],
-  "Insurance": ["insurance", "seguro", "mapfre", "axa", "allianz"],
-  "Healthcare": ["pharmacy", "farmacia", "doctor", "hospital", "clinic", "dentist"],
-  "Clothing": ["zara", "hm", "mango", "pull&bear", "bershka", "stradivarius", "uniqlo"],
+  "Insurance": ["insurance", "seguro", "mapfre", "axa", "allianz", "sanitas", "asisa"],
+  "Healthcare": ["pharmacy", "farmacia", "doctor", "hospital", "clinic", "dentist", "optica", "optician"],
+  "Personal Care": ["peluqueria", "haircut", "salon", "barber", "spa", "massage", "beauty"],
+  "Clothing": ["zara", "hm", "mango", "pull&bear", "bershka", "stradivarius", "uniqlo", "primark", "decathlon"],
+  "Furniture": ["ikea", "leroy merlin", "maisons du monde", "conforama", "jysk"],
+  "Home Maintenance": ["bricolaje", "ferreteria", "hardware store", "plumber", "electrician", "fontanero", "electricista"],
+  "Education": ["udemy", "coursera", "domestika", "masterclass", "skillshare", "linkedin learning", "university", "academia"],
+  "Pets": ["tiendanimal", "kiwoko", "veterinario", "vet", "pet shop", "mascota"],
+  "Gifts": ["regalo", "gift", "fnac", "el corte ingles"],
+  "Donations": ["donation", "donacion", "charity", "caritas", "cruz roja", "unicef", "wwf"],
+  "Fees": ["bank fee", "comision", "atm fee", "wire fee", "transfer fee"],
 };
 
 async function main() {
@@ -117,8 +141,6 @@ async function main() {
     create: {
       id: "settings",
       primaryCurrency: "EUR",
-      emergencyFundMonths: 6,
-      syncIntervalHours: 6,
     },
   });
   console.log("Created default app settings");

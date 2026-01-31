@@ -44,94 +44,6 @@ export interface WiseApiBalance {
 }
 
 /**
- * Wise Statement Transaction
- */
-export interface WiseApiTransaction {
-  type: "CREDIT" | "DEBIT";
-  date: string;
-  amount: {
-    value: number;
-    currency: string;
-  };
-  totalFees: {
-    value: number;
-    currency: string;
-  };
-  details: {
-    type: string;
-    description: string;
-    senderName?: string;
-    senderAccount?: string;
-    paymentReference?: string;
-    recipient?: {
-      name: string;
-    };
-    merchant?: {
-      name: string;
-      category?: string;
-      categoryCode?: string;
-      city?: string;
-      country?: string;
-    };
-  };
-  exchangeDetails?: {
-    fromAmount: {
-      value: number;
-      currency: string;
-    };
-    toAmount: {
-      value: number;
-      currency: string;
-    };
-    rate: number;
-  };
-  runningBalance: {
-    value: number;
-    currency: string;
-  };
-  referenceNumber: string;
-}
-
-/**
- * Statement Response
- */
-export interface WiseApiStatementResponse {
-  accountHolder: {
-    type: string;
-    address?: {
-      addressFirstLine: string;
-      city: string;
-      postCode: string;
-      country: string;
-    };
-    firstName?: string;
-    lastName?: string;
-  };
-  issuer: {
-    name: string;
-    firstLine: string;
-    city: string;
-    postCode: string;
-    country: string;
-  };
-  transactions: WiseApiTransaction[];
-  startOfStatementBalance?: {
-    value: number;
-    currency: string;
-  };
-  endOfStatementBalance?: {
-    value: number;
-    currency: string;
-  };
-  query: {
-    intervalStart: string;
-    intervalEnd: string;
-    currency: string;
-    accountId: number;
-  };
-}
-
-/**
  * Exchange Rate
  */
 export interface WiseApiExchangeRate {
@@ -152,4 +64,48 @@ export interface WiseApiError {
     message: string;
     path?: string;
   }>;
+}
+
+// =============================================================================
+// Activity API Types (alternative to Balance Statements for read-only tokens)
+// =============================================================================
+
+/**
+ * Activity resource reference
+ */
+export interface WiseApiActivityResource {
+  id: number;
+  type: string;
+}
+
+/**
+ * Activity from the Activity API
+ */
+export interface WiseApiActivity {
+  id: string;
+  type:
+    | "CARD_PAYMENT"
+    | "BALANCE_DEPOSIT"
+    | "TRANSFER"
+    | "DIRECT_DEBIT"
+    | "CONVERSION"
+    | "BALANCE_ADJUSTMENT"
+    | "AUTO_CONVERSION"
+    | string;
+  resource: WiseApiActivityResource;
+  title: string;
+  description: string;
+  primaryAmount: string; // e.g. "150 JPY"
+  secondaryAmount: string; // e.g. "1.50 SGD"
+  status: "REQUIRES_ATTENTION" | "IN_PROGRESS" | "UPCOMING" | "COMPLETED" | "CANCELLED";
+  createdOn: string;
+  updatedOn: string;
+}
+
+/**
+ * Activity list response
+ */
+export interface WiseApiActivityResponse {
+  cursor: string | null;
+  activities: WiseApiActivity[];
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -31,13 +31,38 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, ArrowUpDown, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Combobox } from "@/components/ui/combobox";
+import {
+  Search,
+  ArrowUpDown,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
+import { usePrivateMode } from "@/components/providers/private-mode-provider";
+
+function formatCurrency(amount: number, currency: string = "EUR"): string {
+  return amount.toLocaleString("de-DE", {
+    style: "currency",
+    currency,
+  });
+}
+
+function PrivateValue({ children }: { children: React.ReactNode }) {
+  const { isPrivate } = usePrivateMode();
+  if (isPrivate) {
+    return <span>••••••</span>;
+  }
+  return <>{children}</>;
+}
 
 interface Transaction {
   id: string;
   date: string;
   description: string;
-  merchant: string | null;
   amount: number;
   currency: string;
   amountEur: number;
@@ -54,9 +79,21 @@ interface Category {
   color: string | null;
 }
 
+interface Pagination {
+  currentPage: number;
+  totalPages: number;
+  totalCount: number;
+  pageSize: number;
+}
+
 interface TransactionsListProps {
   transactions: Transaction[];
   categories: Category[];
+  pagination: Pagination;
+  initialFilters: {
+    type: string;
+    category: string;
+  };
 }
 
 type SortField = "date" | "amount" | "description";
@@ -65,11 +102,16 @@ type SortOrder = "asc" | "desc";
 export function TransactionsList({
   transactions,
   categories,
+  pagination,
+  initialFilters,
 }: TransactionsListProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>(initialFilters.type);
+  const [categoryFilter, setCategoryFilter] = useState<string>(
+    initialFilters.category
+  );
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
@@ -77,37 +119,62 @@ export function TransactionsList({
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [applyToSimilar, setApplyToSimilar] = useState(false);
+  const [keyword, setKeyword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Filter and sort transactions
-  const filteredTransactions = useMemo(() => {
-    let result = [...transactions];
+  // Navigate with filters
+  function updateFilters(updates: {
+    page?: number;
+    type?: string;
+    category?: string;
+  }) {
+    const params = new URLSearchParams(searchParams.toString());
 
-    // Search filter
-    if (search) {
-      const searchLower = search.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.description.toLowerCase().includes(searchLower) ||
-          t.merchant?.toLowerCase().includes(searchLower)
-      );
-    }
-
-    // Type filter
-    if (typeFilter !== "all") {
-      result = result.filter((t) => t.type === typeFilter);
-    }
-
-    // Category filter
-    if (categoryFilter !== "all") {
-      if (categoryFilter === "uncategorized") {
-        result = result.filter((t) => !t.categoryId);
+    if (updates.page !== undefined) {
+      if (updates.page === 1) {
+        params.delete("page");
       } else {
-        result = result.filter((t) => t.categoryId === categoryFilter);
+        params.set("page", updates.page.toString());
       }
     }
 
-    // Sort
+    if (updates.type !== undefined) {
+      if (updates.type === "all") {
+        params.delete("type");
+      } else {
+        params.set("type", updates.type);
+      }
+      // Reset to page 1 when filter changes
+      params.delete("page");
+    }
+
+    if (updates.category !== undefined) {
+      if (updates.category === "all") {
+        params.delete("category");
+      } else {
+        params.set("category", updates.category);
+      }
+      // Reset to page 1 when filter changes
+      params.delete("page");
+    }
+
+    router.push(`/transactions?${params.toString()}`);
+  }
+
+  // Client-side search and sort (within current page)
+  const filteredTransactions = useMemo(() => {
+    let result = [...transactions];
+
+    // Search filter (client-side, within current page)
+    if (search) {
+      const searchLower = search.toLowerCase();
+      result = result.filter((t) =>
+        t.description.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Sort (client-side, within current page)
     result.sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
@@ -126,7 +193,7 @@ export function TransactionsList({
     });
 
     return result;
-  }, [transactions, search, typeFilter, categoryFilter, sortField, sortOrder]);
+  }, [transactions, search, sortField, sortOrder]);
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -139,7 +206,10 @@ export function TransactionsList({
 
   function openEditDialog(transaction: Transaction) {
     setEditingTransaction(transaction);
-    setSelectedCategoryId(transaction.categoryId || "");
+    setSelectedCategoryId(transaction.categoryId || "none");
+    setApplyToSimilar(false);
+    // Pre-fill keyword with the transaction description
+    setKeyword(transaction.description);
   }
 
   async function handleSaveCategory() {
@@ -154,7 +224,9 @@ export function TransactionsList({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            categoryId: selectedCategoryId || null,
+            categoryId: selectedCategoryId === "none" ? null : selectedCategoryId,
+            applyToSimilar,
+            keyword: applyToSimilar ? keyword : undefined,
           }),
         }
       );
@@ -163,7 +235,14 @@ export function TransactionsList({
         throw new Error("Failed to update transaction");
       }
 
-      toast.success("Transaction updated");
+      const result = await response.json();
+      
+      if (applyToSimilar && result.updatedCount > 1) {
+        toast.success(`Updated ${result.updatedCount} transactions`);
+      } else {
+        toast.success("Transaction updated");
+      }
+      
       setEditingTransaction(null);
       router.refresh();
     } catch (error) {
@@ -175,6 +254,16 @@ export function TransactionsList({
     }
   }
 
+  function handleTypeChange(value: string) {
+    setTypeFilter(value);
+    updateFilters({ type: value });
+  }
+
+  function handleCategoryChange(value: string) {
+    setCategoryFilter(value);
+    updateFilters({ category: value });
+  }
+
   return (
     <>
       {/* Filters */}
@@ -182,14 +271,14 @@ export function TransactionsList({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search transactions..."
+            placeholder="Search in current page..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
         </div>
 
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
+        <Select value={typeFilter} onValueChange={handleTypeChange}>
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="Type" />
           </SelectTrigger>
@@ -201,20 +290,23 @@ export function TransactionsList({
           </SelectContent>
         </Select>
 
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            <SelectItem value="uncategorized">Uncategorized</SelectItem>
-            {categories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.id}>
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Combobox
+          options={[
+            { value: "all", label: "All Categories" },
+            { value: "uncategorized", label: "Uncategorized" },
+            ...categories.map((cat) => ({
+              value: cat.id,
+              label: cat.name,
+              color: cat.color || undefined,
+            })),
+          ]}
+          value={categoryFilter}
+          onValueChange={handleCategoryChange}
+          placeholder="Category"
+          searchPlaceholder="Search categories..."
+          emptyText="No category found."
+          className="w-[180px]"
+        />
       </div>
 
       {/* Transactions Table */}
@@ -276,15 +368,7 @@ export function TransactionsList({
                     {format(new Date(transaction.date), "dd MMM yyyy")}
                   </TableCell>
                   <TableCell>
-                    <div>
-                      <p className="font-medium">{transaction.description}</p>
-                      {transaction.merchant &&
-                        transaction.merchant !== transaction.description && (
-                          <p className="text-sm text-muted-foreground">
-                            {transaction.merchant}
-                          </p>
-                        )}
-                    </div>
+                    <p className="font-medium">{transaction.description}</p>
                   </TableCell>
                   <TableCell>
                     {transaction.categoryName ? (
@@ -311,18 +395,16 @@ export function TransactionsList({
                           : ""
                       }`}
                     >
-                      {transaction.type === "INCOME" ? "+" : "-"}
-                      {Math.abs(transaction.amountEur).toLocaleString("de-DE", {
-                        style: "currency",
-                        currency: "EUR",
-                      })}
+                      <PrivateValue>
+                        {transaction.type === "INCOME" ? "+" : "-"}
+                        {formatCurrency(Math.abs(transaction.amountEur))}
+                      </PrivateValue>
                     </span>
                     {transaction.currency !== "EUR" && (
                       <p className="text-xs text-muted-foreground">
-                        {Math.abs(transaction.amount).toLocaleString("de-DE", {
-                          style: "currency",
-                          currency: transaction.currency,
-                        })}
+                        <PrivateValue>
+                          {formatCurrency(Math.abs(transaction.amount), transaction.currency)}
+                        </PrivateValue>
                       </p>
                     )}
                   </TableCell>
@@ -333,10 +415,46 @@ export function TransactionsList({
         </Table>
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        Showing {filteredTransactions.length} of {transactions.length}{" "}
-        transactions
-      </p>
+      {/* Pagination */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount.toLocaleString()} transactions)
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => updateFilters({ page: 1 })}
+            disabled={pagination.currentPage === 1}
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => updateFilters({ page: pagination.currentPage - 1 })}
+            disabled={pagination.currentPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => updateFilters({ page: pagination.currentPage + 1 })}
+            disabled={pagination.currentPage === pagination.totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => updateFilters({ page: pagination.totalPages })}
+            disabled={pagination.currentPage === pagination.totalPages}
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
 
       {/* Edit Dialog */}
       <Dialog
@@ -374,35 +492,67 @@ export function TransactionsList({
                       : "text-red-600"
                   }`}
                 >
-                  {editingTransaction.type === "INCOME" ? "+" : "-"}
-                  {Math.abs(editingTransaction.amountEur).toLocaleString(
-                    "de-DE",
-                    {
-                      style: "currency",
-                      currency: "EUR",
-                    }
-                  )}
+                  <PrivateValue>
+                    {editingTransaction.type === "INCOME" ? "+" : "-"}
+                    {formatCurrency(Math.abs(editingTransaction.amountEur))}
+                  </PrivateValue>
                 </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
-                <Select
+                <Combobox
+                  options={[
+                    { value: "none", label: "None" },
+                    ...categories.map((cat) => ({
+                      value: cat.id,
+                      label: cat.name,
+                      color: cat.color || undefined,
+                    })),
+                  ]}
                   value={selectedCategoryId}
                   onValueChange={setSelectedCategoryId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">None</SelectItem>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select a category"
+                  searchPlaceholder="Search categories..."
+                  emptyText="No category found."
+                />
+              </div>
+
+              {/* Apply to similar transactions */}
+              <div className="space-y-3 rounded-lg border p-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="applyToSimilar"
+                    checked={applyToSimilar}
+                    onCheckedChange={(checked) =>
+                      setApplyToSimilar(checked === true)
+                    }
+                  />
+                  <Label
+                    htmlFor="applyToSimilar"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Apply to all similar transactions
+                  </Label>
+                </div>
+
+                {applyToSimilar && (
+                  <div className="space-y-2">
+                    <Label htmlFor="keyword" className="text-sm text-muted-foreground">
+                      Match transactions containing:
+                    </Label>
+                    <Input
+                      id="keyword"
+                      value={keyword}
+                      onChange={(e) => setKeyword(e.target.value)}
+                      placeholder="Enter keyword to match"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      All transactions with descriptions containing this keyword will be updated.
+                      This keyword will also be saved for auto-categorizing future transactions.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}

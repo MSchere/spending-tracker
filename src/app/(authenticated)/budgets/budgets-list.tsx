@@ -27,10 +27,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Loader2, Trash2 } from "lucide-react";
+import { usePrivateMode } from "@/components/providers/private-mode-provider";
+
+function formatCurrency(amount: number): string {
+  return amount.toLocaleString("de-DE", {
+    style: "currency",
+    currency: "EUR",
+  });
+}
+
+function PrivateValue({ children }: { children: React.ReactNode }) {
+  const { isPrivate } = usePrivateMode();
+  if (isPrivate) {
+    return <span>••••••</span>;
+  }
+  return <>{children}</>;
+}
 
 interface Budget {
   id: string;
@@ -153,18 +170,18 @@ export function BudgetsList({ budgets, categories }: BudgetsListProps) {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableCategories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={availableCategories.map((cat) => ({
+                  value: cat.id,
+                  label: cat.name,
+                  color: cat.color || undefined,
+                }))}
+                value={categoryId}
+                onValueChange={setCategoryId}
+                placeholder="Select a category"
+                searchPlaceholder="Search categories..."
+                emptyText="No categories available"
+              />
             </div>
 
             <div className="space-y-2">
@@ -269,17 +286,11 @@ export function BudgetsList({ budgets, categories }: BudgetsListProps) {
                       <span
                         className={isOverBudget ? "text-red-600 font-medium" : ""}
                       >
-                        {budget.spent.toLocaleString("de-DE", {
-                          style: "currency",
-                          currency: "EUR",
-                        })}
+                        <PrivateValue>{formatCurrency(budget.spent)}</PrivateValue>
                       </span>
                       <span className="text-muted-foreground">
                         of{" "}
-                        {budget.amount.toLocaleString("de-DE", {
-                          style: "currency",
-                          currency: "EUR",
-                        })}
+                        <PrivateValue>{formatCurrency(budget.amount)}</PrivateValue>
                       </span>
                     </div>
                     <Progress
@@ -287,15 +298,11 @@ export function BudgetsList({ budgets, categories }: BudgetsListProps) {
                       className={isOverBudget ? "[&>div]:bg-red-600" : ""}
                     />
                     <p className="text-xs text-muted-foreground text-right">
-                      {isOverBudget
-                        ? `${(budget.spent - budget.amount).toLocaleString(
-                            "de-DE",
-                            { style: "currency", currency: "EUR" }
-                          )} over budget`
-                        : `${(budget.amount - budget.spent).toLocaleString(
-                            "de-DE",
-                            { style: "currency", currency: "EUR" }
-                          )} remaining`}
+                      <PrivateValue>
+                        {isOverBudget
+                          ? `${formatCurrency(budget.spent - budget.amount)} over budget`
+                          : `${formatCurrency(budget.amount - budget.spent)} remaining`}
+                      </PrivateValue>
                     </p>
                   </div>
                 </CardContent>

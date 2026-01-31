@@ -35,6 +35,7 @@ async function getRecurringData(userId: string) {
     categories: categories.map((c) => ({
       id: c.id,
       name: c.name,
+      color: c.color,
     })),
     // Suppress unused variable warning
     _profileCount: profiles.length,
