@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/server/auth";
 import { db } from "@/lib/server/db";
+import { Currency } from "@prisma/client";
 
 /**
  * GET /api/preferences - Get user preferences
@@ -50,22 +51,22 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Invalid locale" }, { status: 400 });
     }
 
-    // Validate currency
-    const validCurrencies = ["EUR", "USD", "GBP", "CHF", "JPY", "CAD", "AUD", "BRL"];
+    // Validate currency (must match Currency enum)
+    const validCurrencies: Currency[] = ["EUR", "USD", "GBP", "CHF", "JPY", "CAD", "AUD", "BRL"];
     if (currency && !validCurrencies.includes(currency)) {
       return NextResponse.json({ error: "Invalid currency" }, { status: 400 });
     }
 
-    const updateData: { locale?: string; currency?: string } = {};
+    const updateData: { locale?: string; currency?: Currency } = {};
     if (locale) updateData.locale = locale;
-    if (currency) updateData.currency = currency;
+    if (currency) updateData.currency = currency as Currency;
 
     const preferences = await db.userPreferences.upsert({
       where: { userId: session.user.id },
       create: {
         userId: session.user.id,
         locale: locale || "es-ES",
-        currency: currency || "EUR",
+        currency: (currency as Currency) || "EUR",
       },
       update: updateData,
     });

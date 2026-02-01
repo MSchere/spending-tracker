@@ -7,6 +7,7 @@ import { HoldingsChart } from "@/components/charts/holdings-chart";
 import { TrendingUp, TrendingDown, Wallet, PiggyBank } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
+import { usePreferences } from "@/components/providers/preferences-provider";
 
 interface PortfolioSummary {
   totalValue: number;
@@ -47,20 +48,13 @@ interface InvestmentsContentProps {
   holdings: Holding[];
 }
 
-function formatCurrency(value: number, mask = false): string {
-  if (mask) return "••••";
-  return new Intl.NumberFormat("de-DE", {
-    style: "currency",
-    currency: "EUR",
-  }).format(value);
-}
-
 function formatPercent(value: number): string {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
 export function InvestmentsContent({ summary, history, holdings }: InvestmentsContentProps) {
   const { isPrivate } = usePrivateMode();
+  const { formatCurrency } = usePreferences();
 
   if (!summary) {
     return (
@@ -83,24 +77,22 @@ export function InvestmentsContent({ summary, history, holdings }: InvestmentsCo
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Investments</h1>
         <p className="text-muted-foreground">Track your investment portfolio from Indexa Capital</p>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <SummaryCard
           title="Portfolio Value"
-          value={formatCurrency(summary.totalValue, isPrivate)}
+          value={isPrivate ? "••••" : formatCurrency(summary.totalValue)}
           description="Current market value"
           icon={Wallet}
         />
 
         <SummaryCard
           title="Amount Invested"
-          value={formatCurrency(summary.totalInvested, isPrivate)}
+          value={isPrivate ? "••••" : formatCurrency(summary.totalInvested)}
           description="Total contributions"
           icon={PiggyBank}
         />
@@ -127,7 +119,6 @@ export function InvestmentsContent({ summary, history, holdings }: InvestmentsCo
         />
       </div>
 
-      {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -150,7 +141,6 @@ export function InvestmentsContent({ summary, history, holdings }: InvestmentsCo
         </Card>
       </div>
 
-      {/* Holdings Table */}
       <Card>
         <CardHeader>
           <CardTitle>Holdings Details</CardTitle>
@@ -177,49 +167,13 @@ export function InvestmentsContent({ summary, history, holdings }: InvestmentsCo
                       {isPrivate ? "••••" : holding.totalShares.toFixed(4)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
-                      {formatCurrency(holding.totalValue, isPrivate)}
+                      {isPrivate ? "••••" : formatCurrency(holding.totalValue)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">{holding.weight.toFixed(1)}%</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Account Details</CardTitle>
-          <CardDescription>Individual Indexa Capital accounts</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4">
-            {summary.accounts.map((account) => (
-              <div key={account.accountNumber} className="p-4 border rounded-lg space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium capitalize">{account.accountType} Account</span>
-                  <span className="text-xs text-muted-foreground font-mono">
-                    {account.accountNumber}
-                  </span>
-                </div>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(account.currentValue, isPrivate)}
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Returns</span>
-                  <span className={cn(account.returns >= 0 ? "text-green-500" : "text-red-500")}>
-                    {isPrivate ? "••••" : formatCurrency(account.returns)} (
-                    {formatPercent(account.returnsPercent)})
-                  </span>
-                </div>
-                {account.lastSyncAt && (
-                  <div className="text-xs text-muted-foreground">
-                    Last synced: {new Date(account.lastSyncAt).toLocaleString()}
-                  </div>
-                )}
-              </div>
-            ))}
           </div>
         </CardContent>
       </Card>

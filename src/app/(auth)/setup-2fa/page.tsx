@@ -129,7 +129,6 @@ function Setup2FAForm() {
             ) : null}
           </div>
 
-          {/* Manual entry option */}
           {secret && (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground text-center">

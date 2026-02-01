@@ -4,6 +4,7 @@ import {
   DepreciationMethod,
   TangibleAsset,
   TangibleAssetValuation,
+  Currency,
 } from "@prisma/client";
 import {
   calculateDepreciation,
@@ -199,7 +200,7 @@ export async function createTangibleAsset(
       category: input.category,
       purchaseDate: input.purchaseDate,
       purchasePrice: input.purchasePrice,
-      currency: input.currency ?? "EUR",
+      currency: (input.currency as Currency) ?? "EUR",
       depreciationMethod,
       usefulLifeYears,
       salvageValue,
@@ -244,7 +245,7 @@ export async function updateTangibleAsset(
       category: input.category,
       purchaseDate: input.purchaseDate,
       purchasePrice: input.purchasePrice,
-      currency: input.currency,
+      currency: input.currency as Currency | undefined,
       depreciationMethod: input.depreciationMethod,
       usefulLifeYears: input.usefulLifeYears,
       salvageValue: input.salvageValue,

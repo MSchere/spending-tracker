@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -28,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Loader2, Trash2, Check, Target } from "lucide-react";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
+import { usePreferences } from "@/components/providers/preferences-provider";
 
 interface SavingsGoal {
   id: string;
@@ -55,6 +55,7 @@ const goalTypeLabels: Record<string, string> = {
 export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
   const router = useRouter();
   const { isPrivate } = usePrivateMode();
+  const { formatCurrency, formatDate, preferences } = usePreferences();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -157,7 +158,6 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
 
   return (
     <>
-      {/* Create Goal Button */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogTrigger asChild>
           <Button>
@@ -201,7 +201,7 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="targetAmount">Target Amount (EUR)</Label>
+                <Label htmlFor="targetAmount">Target Amount ({preferences.currency})</Label>
                 <Input
                   id="targetAmount"
                   type="number"
@@ -214,7 +214,7 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="currentAmount">Current Amount (EUR)</Label>
+                <Label htmlFor="currentAmount">Current Amount ({preferences.currency})</Label>
                 <Input
                   id="currentAmount"
                   type="number"
@@ -250,7 +250,6 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Active Goals */}
       {activeGoals.length === 0 && completedGoals.length === 0 ? (
         <Card>
           <CardContent className="py-8">
@@ -310,7 +309,7 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
                         <Badge variant="secondary">{goalTypeLabels[goal.type] || goal.type}</Badge>
                         {goal.deadline && (
                           <span className="text-xs">
-                            Due {format(new Date(goal.deadline), "MMM yyyy")}
+                            Due {formatDate(goal.deadline, { month: "short", year: "numeric" })}
                           </span>
                         )}
                       </CardDescription>
@@ -319,21 +318,10 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span className="font-medium">
-                            {isPrivate
-                              ? "••••"
-                              : goal.currentAmount.toLocaleString("de-DE", {
-                                  style: "currency",
-                                  currency: "EUR",
-                                })}
+                            {isPrivate ? "••••" : formatCurrency(goal.currentAmount)}
                           </span>
                           <span className="text-muted-foreground">
-                            of{" "}
-                            {isPrivate
-                              ? "••••"
-                              : goal.targetAmount.toLocaleString("de-DE", {
-                                  style: "currency",
-                                  currency: "EUR",
-                                })}
+                            of {isPrivate ? "••••" : formatCurrency(goal.targetAmount)}
                           </span>
                         </div>
                         <Progress
@@ -351,7 +339,6 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
             </div>
           )}
 
-          {/* Completed Goals */}
           {completedGoals.length > 0 && (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-muted-foreground">Completed Goals</h2>
@@ -381,13 +368,7 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm text-muted-foreground">
-                        Saved{" "}
-                        {isPrivate
-                          ? "••••"
-                          : goal.targetAmount.toLocaleString("de-DE", {
-                              style: "currency",
-                              currency: "EUR",
-                            })}
+                        Saved {isPrivate ? "••••" : formatCurrency(goal.targetAmount)}
                       </p>
                     </CardContent>
                   </Card>

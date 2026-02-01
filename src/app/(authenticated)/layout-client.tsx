@@ -41,7 +41,6 @@ export function AuthenticatedLayoutClient({
     <PreferencesProvider initialPreferences={initialPreferences}>
       <PrivateModeProvider>
         <SidebarProvider>
-          {/* Fixed header spanning full width */}
           <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center gap-4 border-b bg-sidebar px-4 lg:px-6">
             <SidebarTrigger className="-ml-1" />
             <Link href="/dashboard" className="flex items-center gap-2">
@@ -52,7 +51,6 @@ export function AuthenticatedLayoutClient({
             <PrivateModeToggle />
             <ThemeToggle />
           </header>
-          {/* Sidebar starts below header */}
           <AppSidebar />
           <div className="flex-1 flex flex-col min-h-screen w-full pt-14 overflow-x-hidden">
             <main className="flex-1 p-4 lg:p-6 overflow-x-hidden">{children}</main>

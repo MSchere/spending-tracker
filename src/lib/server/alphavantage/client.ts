@@ -86,8 +86,9 @@ export class AlphaVantageClient {
 
   /**
    * Get current stock/ETF quote (transformed)
+   * Optionally converts to target currency using forex rates
    */
-  async getStockQuote(symbol: string): Promise<StockQuote> {
+  async getStockQuote(symbol: string, targetCurrency?: string): Promise<StockQuote> {
     const raw = await this.getGlobalQuoteRaw(symbol);
     const quote = raw["Global Quote"];
 
@@ -95,14 +96,42 @@ export class AlphaVantageClient {
       throw new Error(`No quote found for symbol: ${symbol}`);
     }
 
+    let price = parseFloat(quote["05. price"]);
+    let change = parseFloat(quote["09. change"]);
+    let previousClose = parseFloat(quote["08. previous close"]);
+
+    // US stocks are in USD - convert if target currency is different
+    if (targetCurrency && targetCurrency !== "USD") {
+      const forexRate = await this.getForexRate("USD", targetCurrency);
+      price = price * forexRate;
+      change = change * forexRate;
+      previousClose = previousClose * forexRate;
+    }
+
     return {
       symbol: quote["01. symbol"],
-      price: parseFloat(quote["05. price"]),
-      change: parseFloat(quote["09. change"]),
+      price,
+      change,
       changePercent: parseFloat(quote["10. change percent"].replace("%", "")),
       latestTradingDay: quote["07. latest trading day"],
-      previousClose: parseFloat(quote["08. previous close"]),
+      previousClose,
     };
+  }
+
+  /**
+   * Get forex exchange rate between two currencies
+   */
+  async getForexRate(fromCurrency: string, toCurrency: string): Promise<number> {
+    if (fromCurrency === toCurrency) return 1;
+
+    const raw = await this.getCryptoRateRaw(fromCurrency, toCurrency);
+    const rate = raw["Realtime Currency Exchange Rate"];
+
+    if (!rate || !rate["5. Exchange Rate"]) {
+      throw new Error(`No forex rate found for ${fromCurrency}/${toCurrency}`);
+    }
+
+    return parseFloat(rate["5. Exchange Rate"]);
   }
 
   /**

@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SummaryCard } from "@/components/ui/summary-card";
 import { Button } from "@/components/ui/button";
@@ -43,6 +42,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
+import { usePreferences } from "@/components/providers/preferences-provider";
 import type { FinancialAssetSummary, FinancialAssetsTotals } from "@/lib/server/alphavantage";
 
 // Asset type configuration
@@ -65,10 +65,6 @@ interface FinancialAssetsContentProps {
   initialAssets: FinancialAssetSummary[];
   initialTotals: FinancialAssetsTotals;
   isApiConfigured: boolean;
-}
-
-function formatCurrency(value: number, currency = "USD"): string {
-  return value.toLocaleString("en-US", { style: "currency", currency });
 }
 
 function formatPercent(value: number): string {
@@ -94,6 +90,7 @@ export function FinancialAssetsContent({
 }: FinancialAssetsContentProps) {
   const router = useRouter();
   const { isPrivate } = usePrivateMode();
+  const { formatCurrency, formatDate, preferences } = usePreferences();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -442,7 +439,7 @@ export function FinancialAssetsContent({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="avgCostBasis">Avg Cost (USD) *</Label>
+                  <Label htmlFor="avgCostBasis">Avg Cost ({preferences.currency}) *</Label>
                   <Input
                     id="avgCostBasis"
                     type="number"
@@ -509,7 +506,12 @@ export function FinancialAssetsContent({
             const isGain = asset.gainLoss >= 0;
             const gainLossColorClass = isGain ? "text-green-600" : "text-red-600";
             const lastUpdated = asset.lastPriceAt
-              ? format(new Date(asset.lastPriceAt), "MMM d, HH:mm")
+              ? formatDate(asset.lastPriceAt, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
               : null;
 
             return (

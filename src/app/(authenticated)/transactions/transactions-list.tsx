@@ -251,7 +251,6 @@ export function TransactionsList({
 
   return (
     <>
-      {/* Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -296,7 +295,6 @@ export function TransactionsList({
         </div>
       </div>
 
-      {/* Transactions Table */}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -398,7 +396,6 @@ export function TransactionsList({
         </Table>
       </div>
 
-      {/* Pagination */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           Page {pagination.currentPage} of {pagination.totalPages} (
@@ -440,7 +437,6 @@ export function TransactionsList({
         </div>
       </div>
 
-      {/* Edit Dialog */}
       <Dialog
         open={!!editingTransaction}
         onOpenChange={(open) => !open && setEditingTransaction(null)}
@@ -498,7 +494,6 @@ export function TransactionsList({
                 />
               </div>
 
-              {/* Apply to similar transactions */}
               <div className="space-y-3 rounded-lg border p-4">
                 <div className="flex items-center space-x-2">
                   <Checkbox

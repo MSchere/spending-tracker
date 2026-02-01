@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +35,7 @@ import {
 import { Combobox } from "@/components/ui/combobox";
 import { Plus, Loader2, Trash2, CalendarClock } from "lucide-react";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
+import { usePreferences } from "@/components/providers/preferences-provider";
 
 interface RecurringExpense {
   id: string;
@@ -70,6 +70,7 @@ const frequencyLabels: Record<string, string> = {
 export function RecurringList({ recurring, categories }: RecurringListProps) {
   const router = useRouter();
   const { isPrivate } = usePrivateMode();
+  const { formatCurrency, formatDate, preferences } = usePreferences();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -165,25 +166,16 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
 
   return (
     <>
-      {/* Summary Card */}
       <Card>
         <CardHeader>
           <CardTitle>Monthly Recurring Total</CardTitle>
           <CardDescription>Estimated monthly cost of all active recurring expenses</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-bold">
-            {isPrivate
-              ? "••••"
-              : monthlyTotal.toLocaleString("de-DE", {
-                  style: "currency",
-                  currency: "EUR",
-                })}
-          </p>
+          <p className="text-3xl font-bold">{isPrivate ? "••••" : formatCurrency(monthlyTotal)}</p>
         </CardContent>
       </Card>
 
-      {/* Create Button */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogTrigger asChild>
           <Button>
@@ -210,7 +202,7 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="amount">Amount (EUR)</Label>
+                <Label htmlFor="amount">Amount ({preferences.currency})</Label>
                 <Input
                   id="amount"
                   type="number"
@@ -281,7 +273,6 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Recurring Expenses Table */}
       {recurring.length === 0 ? (
         <Card>
           <CardContent className="py-8">
@@ -318,14 +309,15 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
                     )}
                   </TableCell>
                   <TableCell>{frequencyLabels[expense.frequency] || expense.frequency}</TableCell>
-                  <TableCell>{format(new Date(expense.nextDueDate), "dd MMM yyyy")}</TableCell>
+                  <TableCell>
+                    {formatDate(expense.nextDueDate, {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </TableCell>
                   <TableCell className="text-right font-medium">
-                    {isPrivate
-                      ? "••••"
-                      : expense.amount.toLocaleString("de-DE", {
-                          style: "currency",
-                          currency: "EUR",
-                        })}
+                    {isPrivate ? "••••" : formatCurrency(expense.amount)}
                   </TableCell>
                   <TableCell>
                     <Button

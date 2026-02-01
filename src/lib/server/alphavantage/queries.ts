@@ -1,5 +1,10 @@
 import { db as prisma } from "@/lib/server/db";
-import type { FinancialAsset, FinancialAssetPrice, FinancialAssetType } from "@prisma/client";
+import type {
+  FinancialAsset,
+  FinancialAssetPrice,
+  FinancialAssetType,
+  Currency,
+} from "@prisma/client";
 import { Decimal } from "decimal.js";
 
 export interface FinancialAssetWithPrices extends FinancialAsset {
@@ -159,7 +164,7 @@ export async function createFinancialAsset(
       type,
       shares: new Decimal(shares),
       avgCostBasis: new Decimal(avgCostBasis),
-      currency: currency || "USD",
+      currency: (currency as Currency) || "USD",
     },
   });
 }
@@ -218,17 +223,29 @@ export async function deleteFinancialAsset(id: string, userId: string): Promise<
   return true;
 }
 
-export async function updateAssetPrice(id: string, price: number): Promise<FinancialAsset> {
+export async function updateAssetPrice(
+  id: string,
+  price: number,
+  currency?: Currency
+): Promise<FinancialAsset> {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  // Build update data
+  const updateData: { lastPrice: Decimal; lastPriceAt: Date; currency?: Currency } = {
+    lastPrice: new Decimal(price),
+    lastPriceAt: now,
+  };
+
+  // Update currency if provided
+  if (currency) {
+    updateData.currency = currency;
+  }
 
   // Update the asset's lastPrice
   const asset = await prisma.financialAsset.update({
     where: { id },
-    data: {
-      lastPrice: new Decimal(price),
-      lastPriceAt: now,
-    },
+    data: updateData,
   });
 
   // Also store in price history (upsert to avoid duplicates for today)

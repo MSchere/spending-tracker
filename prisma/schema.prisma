@@ -10,6 +10,21 @@ datasource db {
 }
 
 // ============================================================================
+// Enums
+// ============================================================================
+
+enum Currency {
+  EUR
+  USD
+  GBP
+  CHF
+  JPY
+  CAD
+  AUD
+  BRL
+}
+
+// ============================================================================
 // User Model (NextAuth compatible - credentials only)
 // ============================================================================
 
@@ -36,7 +51,7 @@ model UserPreferences {
   id        String   @id @default(cuid())
   userId    String   @unique
   locale    String   @default("es-ES") // BCP 47 locale tag
-  currency  String   @default("EUR")   // ISO 4217 currency code
+  currency  Currency @default(EUR)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -64,7 +79,7 @@ model WiseBalance {
   id            String   @id @default(cuid())
   wiseBalanceId BigInt   @unique // Wise balance ID
   profileId     String
-  currency      String // ISO currency code
+  currency      String   // ISO currency code (from Wise API, may include currencies we don't support)
   amount        Decimal  @db.Decimal(18, 4)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -82,7 +97,7 @@ model Transaction {
   profileId          String
   type               TransactionType
   amount             Decimal         @db.Decimal(18, 4)
-  currency           String
+  currency           String          // Original currency from source (may include currencies we don't support)
   amountEur          Decimal         @db.Decimal(18, 4) // Converted to EUR
   description        String?
   date               DateTime
@@ -146,7 +161,7 @@ model Budget {
   userId     String
   categoryId String
   amount     Decimal      @db.Decimal(18, 4)
-  currency   String       @default("EUR")
+  currency   Currency     @default(EUR)
   period     BudgetPeriod
   startDate  DateTime
   isActive   Boolean      @default(true)
@@ -169,7 +184,7 @@ model SavingsGoal {
   name          String
   targetAmount  Decimal         @db.Decimal(18, 4)
   currentAmount Decimal         @db.Decimal(18, 4) @default(0)
-  currency      String          @default("EUR")
+  currency      Currency        @default(EUR)
   deadline      DateTime?
   type          SavingsGoalType
   isCompleted   Boolean         @default(false)
@@ -192,7 +207,7 @@ model RecurringExpense {
   id          String             @id @default(cuid())
   name        String
   amount      Decimal            @db.Decimal(18, 4)
-  currency    String             @default("EUR")
+  currency    Currency           @default(EUR)
   frequency   RecurringFrequency
   nextDueDate DateTime
   categoryId  String?
@@ -218,8 +233,8 @@ enum RecurringFrequency {
 
 model ExchangeRate {
   id           String   @id @default(cuid())
-  fromCurrency String
-  toCurrency   String
+  fromCurrency String   // ISO currency code (may include external currencies)
+  toCurrency   String   // ISO currency code (may include external currencies)
   rate         Decimal  @db.Decimal(18, 8)
   date         DateTime @db.Date
   createdAt    DateTime @default(now())
@@ -228,8 +243,8 @@ model ExchangeRate {
 }
 
 model AppSettings {
-  id              String    @id @default("settings")
-  primaryCurrency String    @default("EUR")
+  id              String   @id @default("settings")
+  primaryCurrency Currency @default(EUR)
   lastSyncAt      DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -327,7 +342,7 @@ model TangibleAsset {
   category           TangibleAssetCategory
   purchaseDate       DateTime              @db.Date
   purchasePrice      Decimal               @db.Decimal(18, 4)
-  currency           String                @default("EUR")
+  currency           Currency              @default(EUR)
   depreciationMethod DepreciationMethod    @default(STRAIGHT_LINE)
   usefulLifeYears    Int?                  // For automatic depreciation
   salvageValue       Decimal?              @db.Decimal(18, 4) // Residual value at end of life
@@ -372,7 +387,7 @@ model FinancialAsset {
   type          FinancialAssetType
   shares        Decimal            @db.Decimal(18, 8) // Supports fractional shares & crypto
   avgCostBasis  Decimal            @db.Decimal(18, 4) // Average cost per share/unit
-  currency      String             @default("USD")    // Price currency from API
+  currency      Currency           @default(USD)      // Price currency
   lastPrice     Decimal?           @db.Decimal(18, 4) // Latest price from API
   lastPriceAt   DateTime?          // When price was last updated
   createdAt     DateTime           @default(now())

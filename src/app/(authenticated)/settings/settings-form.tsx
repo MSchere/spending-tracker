@@ -120,7 +120,6 @@ export function SettingsForm({
         </CardContent>
       </Card>
 
-      {/* User Preferences */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -131,7 +130,7 @@ export function SettingsForm({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <label className="text-sm font-medium">Display Language</label>
               <Select
                 value={preferences.locale}
@@ -151,7 +150,7 @@ export function SettingsForm({
               <p className="text-xs text-muted-foreground">Used for date and number formatting</p>
             </div>
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <label className="text-sm font-medium">Default Currency</label>
               <Select
                 value={preferences.currency}
@@ -174,7 +173,6 @@ export function SettingsForm({
         </CardContent>
       </Card>
 
-      {/* Wise Integration */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -225,7 +223,6 @@ export function SettingsForm({
         </CardContent>
       </Card>
 
-      {/* Indexa Capital Integration */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -253,7 +250,6 @@ export function SettingsForm({
         </CardContent>
       </Card>
 
-      {/* Alpha Vantage Integration */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -296,7 +292,6 @@ export function SettingsForm({
         </CardContent>
       </Card>
 
-      {/* Data Sync */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">

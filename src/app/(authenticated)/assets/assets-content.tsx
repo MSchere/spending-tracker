@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SummaryCard } from "@/components/ui/summary-card";
 import { Button } from "@/components/ui/button";
@@ -43,6 +42,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
+import { usePreferences } from "@/components/providers/preferences-provider";
 import type { TangibleAssetSummary, TangibleAssetsTotals } from "@/lib/server/assets";
 
 // Category configuration
@@ -86,10 +86,6 @@ interface AssetsContentProps {
   initialTotals: TangibleAssetsTotals;
 }
 
-function formatCurrency(value: number, currency = "EUR"): string {
-  return value.toLocaleString("de-DE", { style: "currency", currency });
-}
-
 function getCategoryIcon(category: string) {
   const cat = CATEGORIES.find((c) => c.value === category);
   return cat?.icon ?? Package;
@@ -103,6 +99,7 @@ function getCategoryLabel(category: string): string {
 export function AssetsContent({ initialAssets, initialTotals }: AssetsContentProps) {
   const router = useRouter();
   const { isPrivate } = usePrivateMode();
+  const { formatCurrency, formatDate } = usePreferences();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -242,7 +239,6 @@ export function AssetsContent({ initialAssets, initialTotals }: AssetsContentPro
 
   return (
     <>
-      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <SummaryCard
           title="Total Current Value"
@@ -470,7 +466,8 @@ export function AssetsContent({ initialAssets, initialTotals }: AssetsContentPro
                   <CardDescription className="flex items-center gap-2">
                     <Badge variant="secondary">{getCategoryLabel(asset.category)}</Badge>
                     <span className="text-xs">
-                      Purchased {format(new Date(asset.purchaseDate), "MMM yyyy")}
+                      Purchased{" "}
+                      {formatDate(asset.purchaseDate, { month: "short", year: "numeric" })}
                     </span>
                   </CardDescription>
                 </CardHeader>

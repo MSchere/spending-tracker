@@ -3,12 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -33,13 +28,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Loader2, Trash2 } from "lucide-react";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
-
-function formatCurrency(amount: number): string {
-  return amount.toLocaleString("de-DE", {
-    style: "currency",
-    currency: "EUR",
-  });
-}
+import { usePreferences } from "@/components/providers/preferences-provider";
 
 function PrivateValue({ children }: { children: React.ReactNode }) {
   const { isPrivate } = usePrivateMode();
@@ -73,6 +62,7 @@ interface BudgetsListProps {
 
 export function BudgetsList({ budgets, categories }: BudgetsListProps) {
   const router = useRouter();
+  const { formatCurrency } = usePreferences();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -113,9 +103,7 @@ export function BudgetsList({ budgets, categories }: BudgetsListProps) {
       setPeriod("MONTHLY");
       router.refresh();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to create budget"
-      );
+      toast.error(error instanceof Error ? error.message : "Failed to create budget");
     } finally {
       setIsLoading(false);
     }
@@ -136,9 +124,7 @@ export function BudgetsList({ budgets, categories }: BudgetsListProps) {
       toast.success("Budget deleted");
       router.refresh();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to delete budget"
-      );
+      toast.error(error instanceof Error ? error.message : "Failed to delete budget");
     } finally {
       setDeletingId(null);
     }
@@ -161,9 +147,7 @@ export function BudgetsList({ budgets, categories }: BudgetsListProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create Budget</DialogTitle>
-            <DialogDescription>
-              Set a spending limit for a category
-            </DialogDescription>
+            <DialogDescription>Set a spending limit for a category</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -234,10 +218,7 @@ export function BudgetsList({ budgets, categories }: BudgetsListProps) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {budgets.map((budget) => {
-            const percentage = Math.min(
-              100,
-              (budget.spent / budget.amount) * 100
-            );
+            const percentage = Math.min(100, (budget.spent / budget.amount) * 100);
             const isOverBudget = budget.spent > budget.amount;
 
             return (
@@ -254,9 +235,7 @@ export function BudgetsList({ budgets, categories }: BudgetsListProps) {
                       >
                         {budget.categoryName}
                       </Badge>
-                      {!budget.isActive && (
-                        <Badge variant="secondary">Inactive</Badge>
-                      )}
+                      {!budget.isActive && <Badge variant="secondary">Inactive</Badge>}
                     </div>
                     <Button
                       variant="ghost"
@@ -273,22 +252,17 @@ export function BudgetsList({ budgets, categories }: BudgetsListProps) {
                     </Button>
                   </div>
                   <CardDescription>
-                    {budget.period.charAt(0) +
-                      budget.period.slice(1).toLowerCase()}{" "}
-                    budget
+                    {budget.period.charAt(0) + budget.period.slice(1).toLowerCase()} budget
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span
-                        className={isOverBudget ? "text-red-600 font-medium" : ""}
-                      >
+                      <span className={isOverBudget ? "text-red-600 font-medium" : ""}>
                         <PrivateValue>{formatCurrency(budget.spent)}</PrivateValue>
                       </span>
                       <span className="text-muted-foreground">
-                        of{" "}
-                        <PrivateValue>{formatCurrency(budget.amount)}</PrivateValue>
+                        of <PrivateValue>{formatCurrency(budget.amount)}</PrivateValue>
                       </span>
                     </div>
                     <Progress

@@ -8,7 +8,6 @@ export {
   type IndexaSyncResult,
 } from "./sync";
 export type {
-  // Raw API types (snake_case)
   IndexaAuthResponse,
   IndexaApiUser,
   IndexaApiAccountSummary,
@@ -16,7 +15,6 @@ export type {
   IndexaApiPortfolio,
   IndexaApiPerformance,
   IndexaApiError,
-  // Transformed types (camelCase)
   IndexaAccount,
   IndexaHolding,
   IndexaPortfolioSnapshot,

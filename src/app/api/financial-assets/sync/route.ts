@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/server/auth";
+import { db } from "@/lib/server/db";
 import {
   getAlphaVantageClient,
   isAlphaVantageConfigured,
@@ -9,7 +10,7 @@ import {
 
 /**
  * POST /api/financial-assets/sync
- * Sync prices for all user's financial assets
+ * Sync prices for all user's financial assets in user's preferred currency
  *
  * Due to Alpha Vantage free tier limits (25 req/day), this should be used sparingly
  */
@@ -24,6 +25,13 @@ export async function POST() {
     if (!isAlphaVantageConfigured()) {
       return NextResponse.json({ error: "Alpha Vantage API not configured" }, { status: 503 });
     }
+
+    // Get user's preferred currency
+    const preferences = await db.userPreferences.findUnique({
+      where: { userId: session.user.id },
+      select: { currency: true },
+    });
+    const targetCurrency = preferences?.currency ?? "EUR";
 
     const assets = await getFinancialAssets(session.user.id);
 
@@ -41,15 +49,16 @@ export async function POST() {
         let price: number;
 
         if (asset.type === "CRYPTO") {
-          const quote = await client.getCryptoQuote(asset.symbol);
+          // Crypto: fetch in user's preferred currency
+          const quote = await client.getCryptoQuote(asset.symbol, targetCurrency);
           price = quote.price;
         } else {
-          // STOCK or ETF
-          const quote = await client.getStockQuote(asset.symbol);
+          // STOCK or ETF: fetch and convert to user's preferred currency
+          const quote = await client.getStockQuote(asset.symbol, targetCurrency);
           price = quote.price;
         }
 
-        await updateAssetPrice(asset.id, price);
+        await updateAssetPrice(asset.id, price, targetCurrency);
         updated++;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
@@ -66,6 +75,7 @@ export async function POST() {
     return NextResponse.json({
       updated,
       total: assets.length,
+      currency: targetCurrency,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
