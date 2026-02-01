@@ -10,6 +10,7 @@ import {
 } from "@/components/charts";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DetailCard } from "@/components/ui/detail-card";
 import { SummaryCard } from "@/components/ui/summary-card";
 import {
   ArrowDownIcon,
@@ -24,7 +25,6 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import Link from "next/link";
 
 interface DashboardStats {
   income: number;
@@ -290,248 +290,188 @@ export function DashboardContent({
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {investmentSummary && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <LineChart className="h-5 w-5" />
-                <CardTitle>Indexa Capital</CardTitle>
+          <DetailCard
+            title="Indexa Capital"
+            description="Long-term investments"
+            icon={LineChart}
+            href="/investments"
+          >
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Portfolio Value</span>
+                <span className="font-medium">
+                  <PrivateValue>{formatCurrency(investmentSummary.totalValue)}</PrivateValue>
+                </span>
               </div>
-              <CardDescription>Long-term investments</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Portfolio Value</span>
-                  <span className="font-medium">
-                    <PrivateValue>{formatCurrency(investmentSummary.totalValue)}</PrivateValue>
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Returns</span>
-                  <span
-                    className={`font-medium ${
-                      investmentSummary.totalReturns >= 0 ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    <PrivateValue>
-                      {investmentSummary.totalReturns >= 0 ? "+" : ""}
-                      {formatCurrency(investmentSummary.totalReturns)} (
-                      {investmentSummary.totalReturnsPercent >= 0 ? "+" : ""}
-                      {investmentSummary.totalReturnsPercent.toFixed(2)}%)
-                    </PrivateValue>
-                  </span>
-                </div>
-                <Link
-                  href="/investments"
-                  className="text-sm text-primary hover:underline block mt-2"
+              <div className="flex justify-between text-sm">
+                <span>Returns</span>
+                <span
+                  className={`font-medium ${
+                    investmentSummary.totalReturns >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
                 >
-                  View details →
-                </Link>
+                  <PrivateValue>
+                    {investmentSummary.totalReturns >= 0 ? "+" : ""}
+                    {formatCurrency(investmentSummary.totalReturns)} (
+                    {investmentSummary.totalReturnsPercent >= 0 ? "+" : ""}
+                    {investmentSummary.totalReturnsPercent.toFixed(2)}%)
+                  </PrivateValue>
+                </span>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </DetailCard>
         )}
 
         {financialAssetsSummary && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Coins className="h-5 w-5" />
-                <CardTitle>Stocks & Crypto</CardTitle>
+          <DetailCard
+            title="Stocks & Crypto"
+            description={`${financialAssetsSummary.assetCount} asset${financialAssetsSummary.assetCount !== 1 ? "s" : ""}`}
+            icon={Coins}
+            href="/financial-assets"
+          >
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Total Value</span>
+                <span className="font-medium">
+                  <PrivateValue>{formatCurrency(financialAssetsSummary.totalValue)}</PrivateValue>
+                </span>
               </div>
-              <CardDescription>
-                {financialAssetsSummary.assetCount} asset
-                {financialAssetsSummary.assetCount !== 1 ? "s" : ""}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Total Value</span>
-                  <span className="font-medium">
-                    <PrivateValue>{formatCurrency(financialAssetsSummary.totalValue)}</PrivateValue>
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Gain/Loss</span>
-                  <span
-                    className={`font-medium ${
-                      financialAssetsSummary.totalGainLoss >= 0 ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    <PrivateValue>
-                      {financialAssetsSummary.totalGainLoss >= 0 ? "+" : ""}
-                      {formatCurrency(financialAssetsSummary.totalGainLoss)} (
-                      {financialAssetsSummary.totalGainLossPercent >= 0 ? "+" : ""}
-                      {financialAssetsSummary.totalGainLossPercent.toFixed(2)}%)
-                    </PrivateValue>
-                  </span>
-                </div>
-                <Link
-                  href="/financial-assets"
-                  className="text-sm text-primary hover:underline block mt-2"
+              <div className="flex justify-between text-sm">
+                <span>Gain/Loss</span>
+                <span
+                  className={`font-medium ${
+                    financialAssetsSummary.totalGainLoss >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
                 >
-                  View details →
-                </Link>
+                  <PrivateValue>
+                    {financialAssetsSummary.totalGainLoss >= 0 ? "+" : ""}
+                    {formatCurrency(financialAssetsSummary.totalGainLoss)} (
+                    {financialAssetsSummary.totalGainLossPercent >= 0 ? "+" : ""}
+                    {financialAssetsSummary.totalGainLossPercent.toFixed(2)}%)
+                  </PrivateValue>
+                </span>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </DetailCard>
         )}
 
         {tangibleAssetsSummary && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                <CardTitle>Tangible Assets</CardTitle>
+          <DetailCard
+            title="Tangible Assets"
+            description={`${tangibleAssetsSummary.assetCount} asset${tangibleAssetsSummary.assetCount !== 1 ? "s" : ""}`}
+            icon={Package}
+            href="/assets"
+          >
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Current Value</span>
+                <span className="font-medium">
+                  <PrivateValue>
+                    {formatCurrency(tangibleAssetsSummary.totalCurrentValue)}
+                  </PrivateValue>
+                </span>
               </div>
-              <CardDescription>
-                {tangibleAssetsSummary.assetCount} asset
-                {tangibleAssetsSummary.assetCount !== 1 ? "s" : ""}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Current Value</span>
-                  <span className="font-medium">
-                    <PrivateValue>
-                      {formatCurrency(tangibleAssetsSummary.totalCurrentValue)}
-                    </PrivateValue>
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Depreciation</span>
-                  <span className="font-medium text-orange-600">
-                    <PrivateValue>
-                      -{formatCurrency(tangibleAssetsSummary.totalDepreciation)} (-
-                      {tangibleAssetsSummary.depreciationPercent.toFixed(1)}%)
-                    </PrivateValue>
-                  </span>
-                </div>
-                <Link href="/assets" className="text-sm text-primary hover:underline block mt-2">
-                  View details →
-                </Link>
+              <div className="flex justify-between text-sm">
+                <span>Depreciation</span>
+                <span className="font-medium text-orange-600">
+                  <PrivateValue>
+                    -{formatCurrency(tangibleAssetsSummary.totalDepreciation)} (-
+                    {tangibleAssetsSummary.depreciationPercent.toFixed(1)}%)
+                  </PrivateValue>
+                </span>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </DetailCard>
         )}
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <PiggyBank className="h-5 w-5" />
-              <CardTitle>Active Budgets</CardTitle>
-            </div>
-            <CardDescription>
-              You have {stats.budgetsCount} active budget
-              {stats.budgetsCount !== 1 ? "s" : ""}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {stats.budgetsCount === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No budgets set up yet. Create one to start tracking your spending limits.
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Track your spending against your budgets in the Budgets section.
-              </p>
-            )}
-            <Link href="/budgets" className="text-sm text-primary hover:underline block mt-2">
-              View details →
-            </Link>
-          </CardContent>
-        </Card>
+        <DetailCard
+          title="Active Budgets"
+          description={`You have ${stats.budgetsCount} active budget${stats.budgetsCount !== 1 ? "s" : ""}`}
+          icon={PiggyBank}
+          href="/budgets"
+        >
+          {stats.budgetsCount === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No budgets set up yet. Create one to start tracking your spending limits.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Track your spending against your budgets in the Budgets section.
+            </p>
+          )}
+        </DetailCard>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              <CardTitle>Savings Goals</CardTitle>
+        <DetailCard
+          title="Savings Goals"
+          description={`${stats.savingsGoals.count} active goal${stats.savingsGoals.count !== 1 ? "s" : ""}`}
+          icon={Target}
+          href="/savings"
+        >
+          {stats.savingsGoals.count === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No savings goals yet. Set one up to track your progress.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Total Progress</span>
+                <span>
+                  <PrivateValue>
+                    {formatCurrency(stats.savingsGoals.current)} /{" "}
+                    {formatCurrency(stats.savingsGoals.target)}
+                  </PrivateValue>
+                </span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{
+                    width: isPrivate
+                      ? "0%"
+                      : `${Math.min(
+                          100,
+                          (stats.savingsGoals.current / stats.savingsGoals.target) * 100
+                        )}%`,
+                  }}
+                />
+              </div>
             </div>
-            <CardDescription>
-              {stats.savingsGoals.count} active goal
-              {stats.savingsGoals.count !== 1 ? "s" : ""}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {stats.savingsGoals.count === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No savings goals yet. Set one up to track your progress.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Total Progress</span>
-                  <span>
+          )}
+        </DetailCard>
+
+        <DetailCard
+          title="Upcoming Expenses"
+          description="Next recurring payments due"
+          icon={CalendarClock}
+          href="/recurring"
+        >
+          {stats.upcomingRecurring.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No recurring expenses set up yet. Add some to track upcoming payments.
+            </p>
+          ) : (
+            <div className="max-h-[200px] overflow-y-auto space-y-3">
+              {stats.upcomingRecurring.map((expense) => (
+                <div key={expense.id} className="flex items-center justify-between text-sm">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{expense.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(expense.nextDueDate).toLocaleDateString("de-DE")}
+                    </p>
+                  </div>
+                  <span className="font-medium text-right">
                     <PrivateValue>
-                      {formatCurrency(stats.savingsGoals.current)} /{" "}
-                      {formatCurrency(stats.savingsGoals.target)}
+                      {expense.amount.toLocaleString("de-DE", {
+                        style: "currency",
+                        currency: expense.currency,
+                      })}
                     </PrivateValue>
                   </span>
                 </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary transition-all"
-                    style={{
-                      width: isPrivate
-                        ? "0%"
-                        : `${Math.min(
-                            100,
-                            (stats.savingsGoals.current / stats.savingsGoals.target) * 100
-                          )}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-            <Link href="/savings" className="text-sm text-primary hover:underline block mt-2">
-              View details →
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <CalendarClock className="h-5 w-5" />
-              <CardTitle>Upcoming Expenses</CardTitle>
+              ))}
             </div>
-            <CardDescription>Next recurring payments due</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {stats.upcomingRecurring.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No recurring expenses set up yet. Add some to track upcoming payments.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {stats.upcomingRecurring.map((expense) => (
-                  <div key={expense.id} className="flex items-center justify-between text-sm">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">{expense.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(expense.nextDueDate).toLocaleDateString("de-DE")}
-                      </p>
-                    </div>
-                    <span className="font-medium text-right">
-                      <PrivateValue>
-                        {expense.amount.toLocaleString("de-DE", {
-                          style: "currency",
-                          currency: expense.currency,
-                        })}
-                      </PrivateValue>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <Link href="/recurring" className="text-sm text-primary hover:underline block mt-2">
-              View details →
-            </Link>
-          </CardContent>
-        </Card>
+          )}
+        </DetailCard>
       </div>
     </div>
   );
