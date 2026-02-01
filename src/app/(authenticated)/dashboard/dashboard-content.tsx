@@ -22,6 +22,7 @@ import {
   LineChart,
   Package,
   PiggyBank,
+  Repeat,
   Target,
   TrendingUp,
   Wallet,
@@ -33,6 +34,7 @@ interface DashboardStats {
   netFlow: number;
   totalBalance: number;
   budgetsCount: number;
+  monthlyRecurringTotal: number;
   savingsGoals: {
     count: number;
     target: number;
@@ -130,7 +132,7 @@ export function DashboardContent({
         <p className="text-muted-foreground">Welcome back, {userName}</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <SummaryCard
           title="Net Worth"
           value={<PrivateValue>{formatCurrency(netWorth.total)}</PrivateValue>}
@@ -154,6 +156,15 @@ export function DashboardContent({
           icon={ArrowUpIcon}
           iconColor="text-red-500"
           valueColor="text-red-600"
+        />
+
+        <SummaryCard
+          title="Monthly Recurring"
+          value={<PrivateValue>-{formatCurrency(stats.monthlyRecurringTotal)}</PrivateValue>}
+          description="Fixed monthly expenses"
+          icon={Repeat}
+          iconColor="text-orange-500"
+          valueColor="text-orange-600"
         />
 
         <SummaryCard

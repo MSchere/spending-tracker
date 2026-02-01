@@ -15,7 +15,7 @@ export function WiseIcon(props: React.SVGProps<SVGSVGElement>) {
       <title>Wise</title>
       <path
         d="M6.488 7.469 0 15.05h11.585l1.301 -3.576H7.922l3.033 -3.507 0.01 -0.092L8.993 4.48h8.873l-6.878 18.925h4.706L24 0.595H2.543l3.945 6.874Z"
-        fill="#000000"
+        fill="currentColor"
         strokeWidth="1"
       ></path>
     </svg>

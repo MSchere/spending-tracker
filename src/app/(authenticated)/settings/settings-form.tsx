@@ -333,7 +333,7 @@ export function SettingsForm({
           <Separator />
 
           <p className="text-xs text-muted-foreground">
-            Light sync happens automatically on every page load. Use full sync to re-fetch all
+            Light sync happens every 1h. Use full sync to re-fetch all
             historical data if something is missing.
           </p>
         </CardContent>

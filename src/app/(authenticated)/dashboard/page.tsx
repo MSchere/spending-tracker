@@ -114,7 +114,6 @@ async function getAllDashboardData(userId: string) {
       orderBy: {
         nextDueDate: "asc",
       },
-      take: 5,
     }),
   ]);
 
@@ -171,8 +170,29 @@ function calculateDashboardStats(data: Awaited<ReturnType<typeof getAllDashboard
       : null,
   }));
 
-  // Serialize upcoming recurring expenses for client component
-  const upcomingRecurring = recurringExpenses.map((r) => ({
+  // Calculate monthly recurring total (normalized to monthly amount)
+  const monthlyRecurringTotal = recurringExpenses.reduce((sum, r) => {
+    const amount = r.amount.toNumber();
+    switch (r.frequency) {
+      case "WEEKLY":
+        return sum + amount * 4.33;
+      case "BIWEEKLY":
+        return sum + amount * 2.17;
+      case "MONTHLY":
+        return sum + amount;
+      case "BIMONTHLY":
+        return sum + amount / 2;
+      case "QUARTERLY":
+        return sum + amount / 3;
+      case "YEARLY":
+        return sum + amount / 12;
+      default:
+        return sum;
+    }
+  }, 0);
+
+  // Serialize upcoming recurring expenses for client component (only first 5)
+  const upcomingRecurring = recurringExpenses.slice(0, 5).map((r) => ({
     id: r.id,
     name: r.name,
     amount: r.amount.toNumber(),
@@ -200,6 +220,7 @@ function calculateDashboardStats(data: Awaited<ReturnType<typeof getAllDashboard
     },
     recentTransactions,
     upcomingRecurring,
+    monthlyRecurringTotal,
   };
 }
 

@@ -223,6 +223,7 @@ enum RecurringFrequency {
   WEEKLY
   BIWEEKLY
   MONTHLY
+  BIMONTHLY
   QUARTERLY
   YEARLY
 }

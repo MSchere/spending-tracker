@@ -63,6 +63,7 @@ const frequencyLabels: Record<string, string> = {
   WEEKLY: "Weekly",
   BIWEEKLY: "Bi-weekly",
   MONTHLY: "Monthly",
+  BIMONTHLY: "Bi-monthly",
   QUARTERLY: "Quarterly",
   YEARLY: "Yearly",
 };
@@ -155,6 +156,8 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
           return sum + r.amount * 2.17;
         case "MONTHLY":
           return sum + r.amount;
+        case "BIMONTHLY":
+          return sum + r.amount / 2;
         case "QUARTERLY":
           return sum + r.amount / 3;
         case "YEARLY":
@@ -224,6 +227,7 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
                     <SelectItem value="WEEKLY">Weekly</SelectItem>
                     <SelectItem value="BIWEEKLY">Bi-weekly</SelectItem>
                     <SelectItem value="MONTHLY">Monthly</SelectItem>
+                    <SelectItem value="BIMONTHLY">Bi-monthly</SelectItem>
                     <SelectItem value="QUARTERLY">Quarterly</SelectItem>
                     <SelectItem value="YEARLY">Yearly</SelectItem>
                   </SelectContent>
