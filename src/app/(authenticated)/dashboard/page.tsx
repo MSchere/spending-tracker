@@ -170,31 +170,39 @@ function calculateDashboardStats(data: Awaited<ReturnType<typeof getAllDashboard
       : null,
   }));
 
-  // Calculate monthly recurring total (normalized to monthly amount)
-  const monthlyRecurringTotal = recurringExpenses.reduce((sum, r) => {
-    const amount = r.amount.toNumber();
-    switch (r.frequency) {
+  // Calculate monthly recurring totals (normalized to monthly amount) by type
+  const calculateMonthlyAmount = (amount: number, frequency: string): number => {
+    switch (frequency) {
       case "WEEKLY":
-        return sum + amount * 4.33;
+        return amount * 4.33;
       case "BIWEEKLY":
-        return sum + amount * 2.17;
+        return amount * 2.17;
       case "MONTHLY":
-        return sum + amount;
+        return amount;
       case "BIMONTHLY":
-        return sum + amount / 2;
+        return amount / 2;
       case "QUARTERLY":
-        return sum + amount / 3;
+        return amount / 3;
       case "YEARLY":
-        return sum + amount / 12;
+        return amount / 12;
       default:
-        return sum;
+        return amount;
     }
-  }, 0);
+  };
 
-  // Serialize upcoming recurring expenses for client component (only first 5)
+  const monthlyRecurringExpenses = recurringExpenses
+    .filter((r) => r.type === "EXPENSE")
+    .reduce((sum, r) => sum + calculateMonthlyAmount(r.amount.toNumber(), r.frequency), 0);
+
+  const monthlyRecurringIncome = recurringExpenses
+    .filter((r) => r.type === "INCOME")
+    .reduce((sum, r) => sum + calculateMonthlyAmount(r.amount.toNumber(), r.frequency), 0);
+
+  // Serialize upcoming recurring items for client component (only first 5)
   const upcomingRecurring = recurringExpenses.slice(0, 5).map((r) => ({
     id: r.id,
     name: r.name,
+    type: r.type,
     amount: r.amount.toNumber(),
     currency: r.currency,
     frequency: r.frequency,
@@ -220,7 +228,8 @@ function calculateDashboardStats(data: Awaited<ReturnType<typeof getAllDashboard
     },
     recentTransactions,
     upcomingRecurring,
-    monthlyRecurringTotal,
+    monthlyRecurringExpenses,
+    monthlyRecurringIncome,
   };
 }
 

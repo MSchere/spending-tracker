@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,13 +33,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Combobox } from "@/components/ui/combobox";
-import { Plus, Loader2, Trash2, CalendarClock } from "lucide-react";
+import { Plus, Loader2, Trash2, CalendarClock, ArrowDownIcon, ArrowUpIcon } from "lucide-react";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
 import { usePreferences } from "@/components/providers/preferences-provider";
 
-interface RecurringExpense {
+interface RecurringItem {
   id: string;
   name: string;
+  type: "EXPENSE" | "INCOME";
   amount: number;
   frequency: string;
   nextDueDate: string;
@@ -55,7 +56,7 @@ interface Category {
 }
 
 interface RecurringListProps {
-  recurring: RecurringExpense[];
+  recurring: RecurringItem[];
   categories: Category[];
 }
 
@@ -68,6 +69,28 @@ const frequencyLabels: Record<string, string> = {
   YEARLY: "Yearly",
 };
 
+/**
+ * Calculate monthly equivalent amount from any frequency
+ */
+function calculateMonthlyAmount(amount: number, frequency: string): number {
+  switch (frequency) {
+    case "WEEKLY":
+      return amount * 4.33;
+    case "BIWEEKLY":
+      return amount * 2.17;
+    case "MONTHLY":
+      return amount;
+    case "BIMONTHLY":
+      return amount / 2;
+    case "QUARTERLY":
+      return amount / 3;
+    case "YEARLY":
+      return amount / 12;
+    default:
+      return amount;
+  }
+}
+
 export function RecurringList({ recurring, categories }: RecurringListProps) {
   const router = useRouter();
   const { isPrivate } = usePrivateMode();
@@ -78,10 +101,20 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
 
   // Form state
   const [name, setName] = useState("");
+  const [type, setType] = useState<"EXPENSE" | "INCOME">("EXPENSE");
   const [amount, setAmount] = useState("");
   const [frequency, setFrequency] = useState("MONTHLY");
   const [nextDueDate, setNextDueDate] = useState("");
   const [categoryId, setCategoryId] = useState("");
+
+  function resetForm() {
+    setName("");
+    setType("EXPENSE");
+    setAmount("");
+    setFrequency("MONTHLY");
+    setNextDueDate("");
+    setCategoryId("");
+  }
 
   async function handleCreate() {
     if (!name || !amount || !nextDueDate) {
@@ -97,6 +130,7 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
+          type,
           amount: parseFloat(amount),
           frequency,
           nextDueDate,
@@ -106,19 +140,15 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to create recurring expense");
+        throw new Error(data.error || "Failed to create recurring item");
       }
 
-      toast.success("Recurring expense created");
+      toast.success(`Recurring ${type.toLowerCase()} created`);
       setIsDialogOpen(false);
-      setName("");
-      setAmount("");
-      setFrequency("MONTHLY");
-      setNextDueDate("");
-      setCategoryId("");
+      resetForm();
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create expense");
+      toast.error(error instanceof Error ? error.message : "Failed to create recurring item");
     } finally {
       setIsLoading(false);
     }
@@ -133,73 +163,95 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to delete recurring expense");
+        throw new Error("Failed to delete recurring item");
       }
 
-      toast.success("Recurring expense deleted");
+      toast.success("Recurring item deleted");
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to delete expense");
+      toast.error(error instanceof Error ? error.message : "Failed to delete item");
     } finally {
       setDeletingId(null);
     }
   }
 
-  // Calculate monthly total
-  const monthlyTotal = recurring
-    .filter((r) => r.isActive)
-    .reduce((sum, r) => {
-      switch (r.frequency) {
-        case "WEEKLY":
-          return sum + r.amount * 4.33;
-        case "BIWEEKLY":
-          return sum + r.amount * 2.17;
-        case "MONTHLY":
-          return sum + r.amount;
-        case "BIMONTHLY":
-          return sum + r.amount / 2;
-        case "QUARTERLY":
-          return sum + r.amount / 3;
-        case "YEARLY":
-          return sum + r.amount / 12;
-        default:
-          return sum;
-      }
-    }, 0);
+  // Calculate monthly totals by type
+  const activeItems = recurring.filter((r) => r.isActive);
+
+  const monthlyExpenseTotal = activeItems
+    .filter((r) => r.type === "EXPENSE")
+    .reduce((sum, r) => sum + calculateMonthlyAmount(r.amount, r.frequency), 0);
+
+  const monthlyIncomeTotal = activeItems
+    .filter((r) => r.type === "INCOME")
+    .reduce((sum, r) => sum + calculateMonthlyAmount(r.amount, r.frequency), 0);
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Monthly Recurring Total</CardTitle>
-          <CardDescription>Estimated monthly cost of all active recurring expenses</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-3xl font-bold">{isPrivate ? "••••" : formatCurrency(monthlyTotal)}</p>
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Monthly Recurring Expenses</CardTitle>
+            <ArrowUpIcon className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-red-600">
+              {isPrivate ? "••••" : `-${formatCurrency(monthlyExpenseTotal)}`}
+            </p>
+            <p className="text-xs text-muted-foreground">Fixed monthly outgoing</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Monthly Recurring Income</CardTitle>
+            <ArrowDownIcon className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-green-600">
+              {isPrivate ? "••••" : `+${formatCurrency(monthlyIncomeTotal)}`}
+            </p>
+            <p className="text-xs text-muted-foreground">Expected monthly incoming</p>
+          </CardContent>
+        </Card>
+      </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogTrigger asChild>
           <Button>
             <Plus className="mr-2 h-4 w-4" />
-            Add Recurring Expense
+            Add Recurring Item
           </Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Recurring Expense</DialogTitle>
-            <DialogDescription>Track a subscription or regular bill</DialogDescription>
+            <DialogTitle>Add Recurring Item</DialogTitle>
+            <DialogDescription>Track a recurring expense or income</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="type">Type</Label>
+              <Select value={type} onValueChange={(v) => setType(v as "EXPENSE" | "INCOME")}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EXPENSE">Expense</SelectItem>
+                  <SelectItem value="INCOME">Income</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Netflix, Rent, Gym"
+                placeholder={
+                  type === "INCOME" ? "e.g., Salary, Freelance" : "e.g., Netflix, Rent, Gym"
+                }
               />
             </div>
 
@@ -283,7 +335,7 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
             <div className="text-center">
               <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground/50" />
               <p className="mt-4 text-muted-foreground">
-                No recurring expenses yet. Add one to start tracking your subscriptions.
+                No recurring items yet. Add one to start tracking your subscriptions and income.
               </p>
             </div>
           </CardContent>
@@ -294,6 +346,7 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Frequency</TableHead>
                 <TableHead>Next Due</TableHead>
@@ -302,36 +355,43 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recurring.map((expense) => (
-                <TableRow key={expense.id}>
-                  <TableCell className="font-medium">{expense.name}</TableCell>
+              {recurring.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>
-                    {expense.categoryName ? (
-                      <Badge variant="outline">{expense.categoryName}</Badge>
+                    <Badge variant={item.type === "INCOME" ? "default" : "secondary"}>
+                      {item.type === "INCOME" ? "Income" : "Expense"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {item.categoryName ? (
+                      <Badge variant="outline">{item.categoryName}</Badge>
                     ) : (
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
-                  <TableCell>{frequencyLabels[expense.frequency] || expense.frequency}</TableCell>
+                  <TableCell>{frequencyLabels[item.frequency] || item.frequency}</TableCell>
                   <TableCell>
-                    {formatDate(expense.nextDueDate, {
+                    {formatDate(item.nextDueDate, {
                       day: "2-digit",
                       month: "short",
                       year: "numeric",
                     })}
                   </TableCell>
                   <TableCell className="text-right font-medium">
-                    {isPrivate ? "••••" : formatCurrency(expense.amount)}
+                    {isPrivate
+                      ? "••••"
+                      : `${item.type === "INCOME" ? "+" : "-"}${formatCurrency(item.amount)}`}
                   </TableCell>
                   <TableCell>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => handleDelete(expense.id)}
-                      disabled={deletingId === expense.id}
+                      onClick={() => handleDelete(item.id)}
+                      disabled={deletingId === item.id}
                     >
-                      {deletingId === expense.id ? (
+                      {deletingId === item.id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />

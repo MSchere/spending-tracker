@@ -34,7 +34,8 @@ interface DashboardStats {
   netFlow: number;
   totalBalance: number;
   budgetsCount: number;
-  monthlyRecurringTotal: number;
+  monthlyRecurringExpenses: number;
+  monthlyRecurringIncome: number;
   savingsGoals: {
     count: number;
     target: number;
@@ -54,6 +55,7 @@ interface DashboardStats {
   upcomingRecurring: Array<{
     id: string;
     name: string;
+    type: string;
     amount: number;
     currency: string;
     frequency: string;
@@ -132,7 +134,7 @@ export function DashboardContent({
         <p className="text-muted-foreground">Welcome back, {userName}</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <SummaryCard
           title="Net Worth"
           value={<PrivateValue>{formatCurrency(netWorth.total)}</PrivateValue>}
@@ -160,11 +162,20 @@ export function DashboardContent({
 
         <SummaryCard
           title="Monthly Recurring"
-          value={<PrivateValue>-{formatCurrency(stats.monthlyRecurringTotal)}</PrivateValue>}
-          description="Fixed monthly expenses"
+          value={<PrivateValue>-{formatCurrency(stats.monthlyRecurringExpenses)}</PrivateValue>}
+          description="Fixed expenses"
           icon={Repeat}
           iconColor="text-orange-500"
           valueColor="text-orange-600"
+        />
+
+        <SummaryCard
+          title="Expected Income"
+          value={<PrivateValue>+{formatCurrency(stats.monthlyRecurringIncome)}</PrivateValue>}
+          description="Monthly recurring"
+          icon={Repeat}
+          iconColor="text-green-500"
+          valueColor="text-green-600"
         />
 
         <SummaryCard

@@ -206,6 +206,7 @@ enum SavingsGoalType {
 model RecurringExpense {
   id          String             @id @default(cuid())
   name        String
+  type        RecurringType      @default(EXPENSE)
   amount      Decimal            @db.Decimal(18, 4)
   currency    Currency           @default(EUR)
   frequency   RecurringFrequency
@@ -217,6 +218,11 @@ model RecurringExpense {
 
   category     Category?     @relation(fields: [categoryId], references: [id])
   transactions Transaction[]
+}
+
+enum RecurringType {
+  EXPENSE
+  INCOME
 }
 
 enum RecurringFrequency {

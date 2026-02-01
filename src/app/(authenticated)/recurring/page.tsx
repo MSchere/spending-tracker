@@ -9,22 +9,23 @@ async function getRecurringData(userId: string) {
     select: { id: true },
   });
 
-  // For now, get recurring expenses based on pattern detection
-  // This is a placeholder - in production we'd analyze transaction patterns
-  const recurringExpenses = await db.recurringExpense.findMany({
+  // Get all recurring items (expenses and income)
+  const recurringItems = await db.recurringExpense.findMany({
     include: { category: true },
     orderBy: { nextDueDate: "asc" },
   });
 
+  // Get all categories (for both expenses and income)
   const categories = await db.category.findMany({
-    where: { type: { in: ["FIXED_EXPENSE", "VARIABLE_EXPENSE"] } },
+    where: { type: { in: ["FIXED_EXPENSE", "VARIABLE_EXPENSE", "INCOME"] } },
     orderBy: { name: "asc" },
   });
 
   return {
-    recurring: recurringExpenses.map((r) => ({
+    recurring: recurringItems.map((r) => ({
       id: r.id,
       name: r.name,
+      type: r.type,
       amount: r.amount.toNumber(),
       frequency: r.frequency,
       nextDueDate: r.nextDueDate.toISOString(),
@@ -54,12 +55,8 @@ export default async function RecurringPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          Recurring Expenses
-        </h1>
-        <p className="text-muted-foreground">
-          Track your subscriptions and regular bills
-        </p>
+        <h1 className="text-3xl font-bold tracking-tight">Recurring</h1>
+        <p className="text-muted-foreground">Track your recurring expenses and income</p>
       </div>
 
       <RecurringList recurring={recurring} categories={categories} />
