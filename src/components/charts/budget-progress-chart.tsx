@@ -7,6 +7,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { usePreferences } from "@/components/providers/preferences-provider";
 
 export type BudgetProgressData = {
   name: string;
@@ -33,6 +34,8 @@ function getBarColor(percentage: number): string {
 }
 
 export function BudgetProgressChart({ data }: BudgetProgressChartProps) {
+  const { formatCurrency } = usePreferences();
+
   if (data.length === 0) {
     return (
       <div className="flex h-[300px] items-center justify-center text-muted-foreground">
@@ -42,16 +45,14 @@ export function BudgetProgressChart({ data }: BudgetProgressChartProps) {
   }
 
   // Sort by percentage (highest first) and take top 6
-  const sortedData = [...data]
-    .sort((a, b) => b.percentage - a.percentage)
-    .slice(0, 6);
+  const sortedData = [...data].sort((a, b) => b.percentage - a.percentage).slice(0, 6);
 
   return (
     <ChartContainer config={chartConfig} className="h-[300px] w-full">
       <BarChart
         data={sortedData}
         layout="vertical"
-        margin={{ left: 0, right: 60 }}
+        margin={{ left: 0, right: 40 }}
         accessibilityLayer
       >
         <XAxis
@@ -66,10 +67,8 @@ export function BudgetProgressChart({ data }: BudgetProgressChartProps) {
           dataKey="name"
           tickLine={false}
           axisLine={false}
-          width={100}
-          tickFormatter={(value) =>
-            value.length > 12 ? `${value.slice(0, 12)}...` : value
-          }
+          width={80}
+          tickFormatter={(value) => (value.length > 10 ? `${value.slice(0, 10)}...` : value)}
         />
         <ChartTooltip
           content={
@@ -80,27 +79,15 @@ export function BudgetProgressChart({ data }: BudgetProgressChartProps) {
                   <div className="space-y-1">
                     <div className="flex items-center justify-between gap-8">
                       <span className="text-muted-foreground">Spent</span>
-                      <span className="font-mono font-medium">
-                        {item.spent.toLocaleString("de-DE", {
-                          style: "currency",
-                          currency: "EUR",
-                        })}
-                      </span>
+                      <span className="font-mono font-medium">{formatCurrency(item.spent)}</span>
                     </div>
                     <div className="flex items-center justify-between gap-8">
                       <span className="text-muted-foreground">Budget</span>
-                      <span className="font-mono font-medium">
-                        {item.budget.toLocaleString("de-DE", {
-                          style: "currency",
-                          currency: "EUR",
-                        })}
-                      </span>
+                      <span className="font-mono font-medium">{formatCurrency(item.budget)}</span>
                     </div>
                     <div className="flex items-center justify-between gap-8">
                       <span className="text-muted-foreground">Usage</span>
-                      <span className="font-mono font-medium">
-                        {item.percentage.toFixed(0)}%
-                      </span>
+                      <span className="font-mono font-medium">{item.percentage.toFixed(0)}%</span>
                     </div>
                   </div>
                 );

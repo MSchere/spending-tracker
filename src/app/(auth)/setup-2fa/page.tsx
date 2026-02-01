@@ -113,7 +113,6 @@ function Setup2FAForm() {
       </CardHeader>
       <form ref={formRef} onSubmit={handleVerify} className="flex flex-col gap-8">
         <CardContent className="space-y-6">
-          {/* QR Code */}
           <div className="flex justify-center">
             {isLoading ? (
               <Skeleton className="w-48 h-48" />
@@ -151,7 +150,6 @@ function Setup2FAForm() {
             </div>
           )}
 
-          {/* Verification code input */}
           <div className="space-y-2">
             <Label htmlFor="totp">Verification Code</Label>
             <div className="flex justify-center">

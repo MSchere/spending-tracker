@@ -9,6 +9,7 @@ import {
   type CategorySpendingData,
 } from "@/components/charts";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
+import { usePreferences } from "@/components/providers/preferences-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailCard } from "@/components/ui/detail-card";
 import { SummaryCard } from "@/components/ui/summary-card";
@@ -97,13 +98,6 @@ interface DashboardContentProps {
   };
 }
 
-function formatCurrency(amount: number): string {
-  return amount.toLocaleString("de-DE", {
-    style: "currency",
-    currency: "EUR",
-  });
-}
-
 function PrivateValue({ children, className }: { children: React.ReactNode; className?: string }) {
   const { isPrivate } = usePrivateMode();
 
@@ -127,6 +121,7 @@ export function DashboardContent({
   netWorth,
 }: DashboardContentProps) {
   const { isPrivate } = usePrivateMode();
+  const { formatCurrency, formatDate } = usePreferences();
 
   return (
     <div className="space-y-6">
@@ -450,22 +445,17 @@ export function DashboardContent({
               No recurring expenses set up yet. Add some to track upcoming payments.
             </p>
           ) : (
-            <div className="max-h-[200px] overflow-y-auto space-y-3">
+            <div className="max-h-20 overflow-y-auto space-y-3">
               {stats.upcomingRecurring.map((expense) => (
                 <div key={expense.id} className="flex items-center justify-between text-sm">
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex gap-2 items-end">
                     <p className="font-medium truncate">{expense.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(expense.nextDueDate).toLocaleDateString("de-DE")}
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      {formatDate(expense.nextDueDate)}
                     </p>
                   </div>
                   <span className="font-medium text-right">
-                    <PrivateValue>
-                      {expense.amount.toLocaleString("de-DE", {
-                        style: "currency",
-                        currency: expense.currency,
-                      })}
-                    </PrivateValue>
+                    <PrivateValue>{formatCurrency(expense.amount, expense.currency)}</PrivateValue>
                   </span>
                 </div>
               ))}

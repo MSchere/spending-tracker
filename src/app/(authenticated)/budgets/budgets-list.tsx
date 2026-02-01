@@ -151,7 +151,6 @@ export function BudgetsList({ budgets, categories }: BudgetsListProps) {
 
   return (
     <>
-      {/* Create Budget Button */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogTrigger asChild>
           <Button>
@@ -224,7 +223,6 @@ export function BudgetsList({ budgets, categories }: BudgetsListProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Budgets Grid */}
       {budgets.length === 0 ? (
         <Card>
           <CardContent className="py-8">

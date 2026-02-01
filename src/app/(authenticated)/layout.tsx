@@ -1,50 +1,33 @@
-"use client";
+import { auth } from "@/lib/server/auth";
+import { db } from "@/lib/server/db";
+import { redirect } from "next/navigation";
+import { AuthenticatedLayoutClient } from "./layout-client";
 
-import Link from "next/link";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/layout/app-sidebar";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { PrivateModeProvider, usePrivateMode } from "@/components/providers/private-mode-provider";
-import { Button } from "@/components/ui/button";
-import { Eye, EyeOff, PiggyBank } from "lucide-react";
+async function getUserPreferences(userId: string) {
+  const preferences = await db.userPreferences.findUnique({
+    where: { userId },
+  });
 
-function PrivateModeToggle() {
-  const { isPrivate, togglePrivateMode } = usePrivateMode();
-
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={togglePrivateMode}
-      title={isPrivate ? "Show balances" : "Hide balances"}
-    >
-      {isPrivate ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-      <span className="sr-only">{isPrivate ? "Show balances" : "Hide balances"}</span>
-    </Button>
-  );
+  return preferences || { locale: "es-ES", currency: "EUR" };
 }
 
-export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+export default async function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
+  const preferences = await getUserPreferences(session.user.id);
+
   return (
-    <PrivateModeProvider>
-      <SidebarProvider>
-        {/* Fixed header spanning full width */}
-        <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center gap-4 border-b bg-sidebar px-4 lg:px-6">
-          <SidebarTrigger className="-ml-1" />
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <PiggyBank className="h-6 w-6 text-gold" />
-            <span className="font-semibold text-gold text-lg">Spending Tracker</span>
-          </Link>
-          <div className="flex-1" />
-          <PrivateModeToggle />
-          <ThemeToggle />
-        </header>
-        {/* Sidebar starts below header */}
-        <AppSidebar />
-        <div className="flex-1 flex flex-col min-h-screen w-full pt-14">
-          <main className="flex-1 p-4 lg:p-6">{children}</main>
-        </div>
-      </SidebarProvider>
-    </PrivateModeProvider>
+    <AuthenticatedLayoutClient
+      initialPreferences={{
+        locale: preferences.locale,
+        currency: preferences.currency,
+      }}
+    >
+      {children}
+    </AuthenticatedLayoutClient>
   );
 }

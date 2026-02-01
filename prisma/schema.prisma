@@ -29,6 +29,18 @@ model User {
   indexaAccounts   IndexaAccount[]
   tangibleAssets   TangibleAsset[]
   financialAssets  FinancialAsset[]
+  preferences      UserPreferences?
+}
+
+model UserPreferences {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  locale    String   @default("es-ES") // BCP 47 locale tag
+  currency  String   @default("EUR")   // ISO 4217 currency code
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // ============================================================================

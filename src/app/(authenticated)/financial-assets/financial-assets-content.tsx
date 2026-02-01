@@ -276,7 +276,6 @@ export function FinancialAssetsContent({
 
   return (
     <>
-      {/* API Warning */}
       {!isApiConfigured && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
@@ -287,7 +286,6 @@ export function FinancialAssetsContent({
         </Alert>
       )}
 
-      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <SummaryCard
           title="Total Value"
@@ -317,7 +315,6 @@ export function FinancialAssetsContent({
         />
       </div>
 
-      {/* Actions */}
       <div className="flex gap-2">
         <Dialog
           open={isDialogOpen}
@@ -343,7 +340,6 @@ export function FinancialAssetsContent({
             </DialogHeader>
 
             <div className="space-y-4">
-              {/* Asset Type */}
               <div className="space-y-2">
                 <Label htmlFor="assetType">Asset Type *</Label>
                 <Select
@@ -370,7 +366,6 @@ export function FinancialAssetsContent({
                 </Select>
               </div>
 
-              {/* Symbol Search (only when adding new) */}
               {!editingAsset && isApiConfigured && (
                 <div className="space-y-2">
                   <Label htmlFor="search">Search Symbol</Label>
@@ -410,7 +405,6 @@ export function FinancialAssetsContent({
                 </div>
               )}
 
-              {/* Symbol (manual entry or from search) */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="symbol">Symbol *</Label>
@@ -434,7 +428,6 @@ export function FinancialAssetsContent({
                 </div>
               </div>
 
-              {/* Position Details */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="shares">{assetType === "CRYPTO" ? "Amount *" : "Shares *"}</Label>
@@ -462,7 +455,6 @@ export function FinancialAssetsContent({
                 </div>
               </div>
 
-              {/* Total Cost Preview */}
               {shares && avgCostBasis && (
                 <div className="rounded-lg bg-muted p-3">
                   <div className="flex justify-between text-sm">
@@ -487,7 +479,6 @@ export function FinancialAssetsContent({
           </DialogContent>
         </Dialog>
 
-        {/* Sync Prices Button */}
         {isApiConfigured && initialAssets.length > 0 && (
           <Button variant="outline" onClick={handleSyncPrices} disabled={isSyncing}>
             {isSyncing ? (
@@ -500,7 +491,6 @@ export function FinancialAssetsContent({
         )}
       </div>
 
-      {/* Assets List */}
       {initialAssets.length === 0 ? (
         <Card>
           <CardContent className="py-8">

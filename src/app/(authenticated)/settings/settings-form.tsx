@@ -6,9 +6,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ShieldCheck, User, WifiOff, RefreshCw, Loader2, TrendingUp, Coins } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ShieldCheck,
+  User,
+  WifiOff,
+  RefreshCw,
+  Loader2,
+  TrendingUp,
+  Coins,
+  Settings,
+} from "lucide-react";
 import { WiseIcon } from "@/components/icons/wise-icon";
 import { toast } from "sonner";
+import {
+  usePreferences,
+  AVAILABLE_LOCALES,
+  AVAILABLE_CURRENCIES,
+} from "@/components/providers/preferences-provider";
 
 interface SettingsFormProps {
   user: {
@@ -36,6 +57,7 @@ export function SettingsForm({
   alphaVantageConfigured,
 }: SettingsFormProps) {
   const router = useRouter();
+  const { preferences, updatePreferences } = usePreferences();
   const [isFullSyncing, setIsFullSyncing] = useState(false);
 
   async function handleFullSync() {
@@ -64,7 +86,6 @@ export function SettingsForm({
 
   return (
     <div className="grid gap-6">
-      {/* Account Settings */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -99,6 +120,60 @@ export function SettingsForm({
         </CardContent>
       </Card>
 
+      {/* User Preferences */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            <CardTitle>Preferences</CardTitle>
+          </div>
+          <CardDescription>Customize your display settings</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Display Language</label>
+              <Select
+                value={preferences.locale}
+                onValueChange={(value) => updatePreferences({ locale: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select language" />
+                </SelectTrigger>
+                <SelectContent>
+                  {AVAILABLE_LOCALES.map((locale) => (
+                    <SelectItem key={locale.value} value={locale.value}>
+                      {locale.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Used for date and number formatting</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Default Currency</label>
+              <Select
+                value={preferences.currency}
+                onValueChange={(value) => updatePreferences({ currency: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  {AVAILABLE_CURRENCIES.map((currency) => (
+                    <SelectItem key={currency.value} value={currency.value}>
+                      {currency.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Used for displaying amounts</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Wise Integration */}
       <Card>
         <CardHeader>
@@ -126,7 +201,7 @@ export function SettingsForm({
                 <span className="text-sm">Last Sync</span>
                 <span className="text-sm text-muted-foreground">
                   {appSettings?.lastSyncAt
-                    ? new Date(appSettings.lastSyncAt).toLocaleString()
+                    ? new Date(appSettings.lastSyncAt).toLocaleString(preferences.locale)
                     : "Never"}
                 </span>
               </div>
@@ -266,20 +341,6 @@ export function SettingsForm({
             Light sync happens automatically on every page load. Use full sync to re-fetch all
             historical data if something is missing.
           </p>
-        </CardContent>
-      </Card>
-
-      {/* App Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Application Settings</CardTitle>
-          <CardDescription>Configure your dashboard preferences</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Primary Currency</span>
-            <Badge variant="outline">{appSettings?.primaryCurrency || "EUR"}</Badge>
-          </div>
         </CardContent>
       </Card>
     </div>

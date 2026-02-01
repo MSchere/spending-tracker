@@ -45,7 +45,7 @@ import {
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
 
 function formatCurrency(amount: number, currency: string = "EUR"): string {
-  return amount.toLocaleString("de-DE", {
+  return amount.toLocaleString("es-ES", {
     style: "currency",
     currency,
   });
@@ -109,26 +109,19 @@ export function TransactionsList({
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>(initialFilters.type);
-  const [categoryFilter, setCategoryFilter] = useState<string>(
-    initialFilters.category
-  );
+  const [categoryFilter, setCategoryFilter] = useState<string>(initialFilters.category);
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
   // Edit dialog state
-  const [editingTransaction, setEditingTransaction] =
-    useState<Transaction | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [applyToSimilar, setApplyToSimilar] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   // Navigate with filters
-  function updateFilters(updates: {
-    page?: number;
-    type?: string;
-    category?: string;
-  }) {
+  function updateFilters(updates: { page?: number; type?: string; category?: string }) {
     const params = new URLSearchParams(searchParams.toString());
 
     if (updates.page !== undefined) {
@@ -169,9 +162,7 @@ export function TransactionsList({
     // Search filter (client-side, within current page)
     if (search) {
       const searchLower = search.toLowerCase();
-      result = result.filter((t) =>
-        t.description.toLowerCase().includes(searchLower)
-      );
+      result = result.filter((t) => t.description.toLowerCase().includes(searchLower));
     }
 
     // Sort (client-side, within current page)
@@ -179,8 +170,7 @@ export function TransactionsList({
       let comparison = 0;
       switch (sortField) {
         case "date":
-          comparison =
-            new Date(a.date).getTime() - new Date(b.date).getTime();
+          comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
           break;
         case "amount":
           comparison = a.amountEur - b.amountEur;
@@ -218,18 +208,15 @@ export function TransactionsList({
     setIsSaving(true);
 
     try {
-      const response = await fetch(
-        `/api/transactions/${editingTransaction.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            categoryId: selectedCategoryId === "none" ? null : selectedCategoryId,
-            applyToSimilar,
-            keyword: applyToSimilar ? keyword : undefined,
-          }),
-        }
-      );
+      const response = await fetch(`/api/transactions/${editingTransaction.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          categoryId: selectedCategoryId === "none" ? null : selectedCategoryId,
+          applyToSimilar,
+          keyword: applyToSimilar ? keyword : undefined,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error("Failed to update transaction");
@@ -246,9 +233,7 @@ export function TransactionsList({
       setEditingTransaction(null);
       router.refresh();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update"
-      );
+      toast.error(error instanceof Error ? error.message : "Failed to update");
     } finally {
       setIsSaving(false);
     }
@@ -278,35 +263,37 @@ export function TransactionsList({
           />
         </div>
 
-        <Select value={typeFilter} onValueChange={handleTypeChange}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="INCOME">Income</SelectItem>
-            <SelectItem value="EXPENSE">Expense</SelectItem>
-            <SelectItem value="TRANSFER">Transfer</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Select value={typeFilter} onValueChange={handleTypeChange}>
+            <SelectTrigger className="w-full sm:w-[150px]">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="INCOME">Income</SelectItem>
+              <SelectItem value="EXPENSE">Expense</SelectItem>
+              <SelectItem value="TRANSFER">Transfer</SelectItem>
+            </SelectContent>
+          </Select>
 
-        <Combobox
-          options={[
-            { value: "all", label: "All Categories" },
-            { value: "uncategorized", label: "Uncategorized" },
-            ...categories.map((cat) => ({
-              value: cat.id,
-              label: cat.name,
-              color: cat.color || undefined,
-            })),
-          ]}
-          value={categoryFilter}
-          onValueChange={handleCategoryChange}
-          placeholder="Category"
-          searchPlaceholder="Search categories..."
-          emptyText="No category found."
-          className="w-[180px]"
-        />
+          <Combobox
+            options={[
+              { value: "all", label: "All Categories" },
+              { value: "uncategorized", label: "Uncategorized" },
+              ...categories.map((cat) => ({
+                value: cat.id,
+                label: cat.name,
+                color: cat.color || undefined,
+              })),
+            ]}
+            value={categoryFilter}
+            onValueChange={handleCategoryChange}
+            placeholder="Category"
+            searchPlaceholder="Search categories..."
+            emptyText="No category found."
+            className="w-full sm:w-[180px]"
+          />
+        </div>
       </div>
 
       {/* Transactions Table */}
@@ -388,9 +375,7 @@ export function TransactionsList({
                   <TableCell className="text-right">
                     <span
                       className={`font-medium ${
-                        transaction.type === "INCOME"
-                          ? "text-green-600"
-                          : ""
+                        transaction.type === "INCOME" ? "text-green-600" : ""
                       }`}
                     >
                       <PrivateValue>
@@ -416,7 +401,8 @@ export function TransactionsList({
       {/* Pagination */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount.toLocaleString()} transactions)
+          Page {pagination.currentPage} of {pagination.totalPages} (
+          {pagination.totalCount.toLocaleString()} transactions)
         </p>
         <div className="flex items-center gap-2">
           <Button
@@ -462,9 +448,7 @@ export function TransactionsList({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Transaction</DialogTitle>
-            <DialogDescription>
-              Update the category for this transaction
-            </DialogDescription>
+            <DialogDescription>Update the category for this transaction</DialogDescription>
           </DialogHeader>
 
           {editingTransaction && (
@@ -485,9 +469,7 @@ export function TransactionsList({
                 <Label>Amount</Label>
                 <p
                   className={`text-sm font-medium ${
-                    editingTransaction.type === "INCOME"
-                      ? "text-green-600"
-                      : "text-red-600"
+                    editingTransaction.type === "INCOME" ? "text-green-600" : "text-red-600"
                   }`}
                 >
                   <PrivateValue>
@@ -522,9 +504,7 @@ export function TransactionsList({
                   <Checkbox
                     id="applyToSimilar"
                     checked={applyToSimilar}
-                    onCheckedChange={(checked) =>
-                      setApplyToSimilar(checked === true)
-                    }
+                    onCheckedChange={(checked) => setApplyToSimilar(checked === true)}
                   />
                   <Label
                     htmlFor="applyToSimilar"
@@ -556,10 +536,7 @@ export function TransactionsList({
           )}
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setEditingTransaction(null)}
-            >
+            <Button variant="outline" onClick={() => setEditingTransaction(null)}>
               Cancel
             </Button>
             <Button onClick={handleSaveCategory} disabled={isSaving}>

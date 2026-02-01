@@ -272,7 +272,6 @@ export function AssetsContent({ initialAssets, initialTotals }: AssetsContentPro
         />
       </div>
 
-      {/* Add Asset Button */}
       <Dialog
         open={isDialogOpen}
         onOpenChange={(open) => {
@@ -419,7 +418,6 @@ export function AssetsContent({ initialAssets, initialTotals }: AssetsContentPro
         </DialogContent>
       </Dialog>
 
-      {/* Assets List */}
       {initialAssets.length === 0 ? (
         <Card>
           <CardContent className="py-8">

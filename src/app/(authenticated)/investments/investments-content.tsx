@@ -188,7 +188,6 @@ export function InvestmentsContent({ summary, history, holdings }: InvestmentsCo
         </CardContent>
       </Card>
 
-      {/* Account Details */}
       <Card>
         <CardHeader>
           <CardTitle>Account Details</CardTitle>

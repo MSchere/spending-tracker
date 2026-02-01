@@ -9,6 +9,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { usePreferences } from "@/components/providers/preferences-provider";
 
 // Color palette for holdings
 const COLORS = [
@@ -34,6 +35,8 @@ interface HoldingsChartProps {
 }
 
 export function HoldingsChart({ data }: HoldingsChartProps) {
+  const { formatCurrency } = usePreferences();
+
   if (data.length === 0) {
     return (
       <div className="flex h-[300px] items-center justify-center text-muted-foreground">
@@ -69,12 +72,7 @@ export function HoldingsChart({ data }: HoldingsChartProps) {
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center justify-between gap-8">
                     <span className="text-muted-foreground">{name}</span>
-                    <span className="font-mono font-medium">
-                      {Number(value).toLocaleString("de-DE", {
-                        style: "currency",
-                        currency: "EUR",
-                      })}
-                    </span>
+                    <span className="font-mono font-medium">{formatCurrency(Number(value))}</span>
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {props.payload?.weight?.toFixed(1)}% of portfolio
@@ -90,8 +88,8 @@ export function HoldingsChart({ data }: HoldingsChartProps) {
           nameKey="name"
           cx="50%"
           cy="50%"
-          innerRadius={60}
-          outerRadius={100}
+          innerRadius="40%"
+          outerRadius="70%"
           paddingAngle={2}
         >
           {chartData.map((entry, index) => (
