@@ -266,7 +266,8 @@ export function DashboardContent({
             <CardDescription>Assets by category</CardDescription>
           </CardHeader>
           <CardContent className="h-full">
-            <div className="h-full space-y-3">
+            <div className="h-full flex flex-col justify-between">
+            <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-blue-500" />
@@ -308,7 +309,8 @@ export function DashboardContent({
                     <PrivateValue>{formatCurrency(netWorth.tangibleAssets)}</PrivateValue>
                   </span>
                 </div>
-              )}
+							)}
+              </div>
               <div className="border-t pt-2 flex justify-between text-sm font-medium">
                 <span>Total</span>
                 <span>
