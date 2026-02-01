@@ -236,13 +236,13 @@ export function TransactionsList({
       }
 
       const result = await response.json();
-      
+
       if (applyToSimilar && result.updatedCount > 1) {
         toast.success(`Updated ${result.updatedCount} transactions`);
       } else {
         toast.success("Transaction updated");
       }
-      
+
       setEditingTransaction(null);
       router.refresh();
     } catch (error) {
@@ -390,8 +390,6 @@ export function TransactionsList({
                       className={`font-medium ${
                         transaction.type === "INCOME"
                           ? "text-green-600"
-                          : transaction.type === "EXPENSE"
-                          ? "text-red-600"
                           : ""
                       }`}
                     >

@@ -4,13 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -41,6 +35,7 @@ import {
 } from "@/components/ui/table";
 import { Combobox } from "@/components/ui/combobox";
 import { Plus, Loader2, Trash2, CalendarClock } from "lucide-react";
+import { usePrivateMode } from "@/components/providers/private-mode-provider";
 
 interface RecurringExpense {
   id: string;
@@ -74,6 +69,7 @@ const frequencyLabels: Record<string, string> = {
 
 export function RecurringList({ recurring, categories }: RecurringListProps) {
   const router = useRouter();
+  const { isPrivate } = usePrivateMode();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -120,9 +116,7 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
       setCategoryId("");
       router.refresh();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to create expense"
-      );
+      toast.error(error instanceof Error ? error.message : "Failed to create expense");
     } finally {
       setIsLoading(false);
     }
@@ -143,9 +137,7 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
       toast.success("Recurring expense deleted");
       router.refresh();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to delete expense"
-      );
+      toast.error(error instanceof Error ? error.message : "Failed to delete expense");
     } finally {
       setDeletingId(null);
     }
@@ -177,16 +169,16 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
       <Card>
         <CardHeader>
           <CardTitle>Monthly Recurring Total</CardTitle>
-          <CardDescription>
-            Estimated monthly cost of all active recurring expenses
-          </CardDescription>
+          <CardDescription>Estimated monthly cost of all active recurring expenses</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-3xl font-bold">
-            {monthlyTotal.toLocaleString("de-DE", {
-              style: "currency",
-              currency: "EUR",
-            })}
+            {isPrivate
+              ? "••••"
+              : monthlyTotal.toLocaleString("de-DE", {
+                  style: "currency",
+                  currency: "EUR",
+                })}
           </p>
         </CardContent>
       </Card>
@@ -202,9 +194,7 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Recurring Expense</DialogTitle>
-            <DialogDescription>
-              Track a subscription or regular bill
-            </DialogDescription>
+            <DialogDescription>Track a subscription or regular bill</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -298,8 +288,7 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
             <div className="text-center">
               <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground/50" />
               <p className="mt-4 text-muted-foreground">
-                No recurring expenses yet. Add one to start tracking your
-                subscriptions.
+                No recurring expenses yet. Add one to start tracking your subscriptions.
               </p>
             </div>
           </CardContent>
@@ -328,17 +317,15 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
-                  <TableCell>
-                    {frequencyLabels[expense.frequency] || expense.frequency}
-                  </TableCell>
-                  <TableCell>
-                    {format(new Date(expense.nextDueDate), "dd MMM yyyy")}
-                  </TableCell>
+                  <TableCell>{frequencyLabels[expense.frequency] || expense.frequency}</TableCell>
+                  <TableCell>{format(new Date(expense.nextDueDate), "dd MMM yyyy")}</TableCell>
                   <TableCell className="text-right font-medium">
-                    {expense.amount.toLocaleString("de-DE", {
-                      style: "currency",
-                      currency: "EUR",
-                    })}
+                    {isPrivate
+                      ? "••••"
+                      : expense.amount.toLocaleString("de-DE", {
+                          style: "currency",
+                          currency: "EUR",
+                        })}
                   </TableCell>
                   <TableCell>
                     <Button

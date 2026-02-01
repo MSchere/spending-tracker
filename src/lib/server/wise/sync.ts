@@ -1,13 +1,13 @@
-// =============================================================================
-// Wise Sync Service
-// Syncs transactions from Wise API to the database
-// =============================================================================
-
 import { db } from "../db";
 import { getWiseClient } from "./client";
 import type { WiseApiActivity } from "./types";
 import { Decimal } from "decimal.js";
-import { subYears } from "date-fns";
+import { subYears, subDays } from "date-fns";
+
+/**
+ * Sync mode for Wise data
+ */
+export type WiseSyncMode = "light" | "full";
 
 /**
  * Auto-categorize a transaction based on description keywords
@@ -77,26 +77,28 @@ async function getExchangeRate(
  * Examples: "150 JPY", "-25.50 EUR", "+100.00 GBP", "<positive>+ 3,070.68 EUR</positive>"
  * Returns the value, currency, and whether it's marked as positive (income)
  */
-function parseActivityAmount(amountStr: string): { value: number; currency: string; isPositive: boolean } | null {
+function parseActivityAmount(
+  amountStr: string
+): { value: number; currency: string; isPositive: boolean } | null {
   if (!amountStr) return null;
-  
+
   // Check if wrapped in <positive> tag (indicates incoming money)
   const isPositive = amountStr.includes("<positive>");
-  
+
   // Remove HTML tags
   const cleanStr = amountStr.replace(/<[^>]*>/g, "").trim();
-  
+
   // Match patterns like "150 JPY", "-25.50 EUR", "+100.00 GBP", "+ 3,070.68 EUR"
   const match = cleanStr.match(/^([+-]?)\s*([\d,]+\.?\d*)\s*([A-Z]{3})$/);
   if (!match) return null;
-  
+
   const sign = match[1];
   const value = parseFloat(match[2].replace(/,/g, ""));
   const currency = match[3];
-  
+
   // If there's an explicit + sign or <positive> tag, it's positive (income)
   const finalIsPositive = isPositive || sign === "+";
-  
+
   return { value, currency, isPositive: finalIsPositive };
 }
 
@@ -115,7 +117,11 @@ function determineTransactionType(
   }
 
   // Transfers between own balances
-  if (activityType === "INTERBALANCE" || activityType === "CONVERSION" || activityType === "AUTO_CONVERSION") {
+  if (
+    activityType === "INTERBALANCE" ||
+    activityType === "CONVERSION" ||
+    activityType === "AUTO_CONVERSION"
+  ) {
     return "TRANSFER";
   }
 
@@ -126,8 +132,12 @@ function determineTransactionType(
   }
 
   // Explicit income types
-  if (activityType === "BALANCE_DEPOSIT" || activityType === "BALANCE_CASHBACK" || 
-      activityType === "INCOMING_PAYMENT" || activityType === "MONEY_ADDED") {
+  if (
+    activityType === "BALANCE_DEPOSIT" ||
+    activityType === "BALANCE_CASHBACK" ||
+    activityType === "INCOMING_PAYMENT" ||
+    activityType === "MONEY_ADDED"
+  ) {
     return "INCOME";
   }
 
@@ -142,8 +152,6 @@ function determineTransactionType(
     return "EXPENSE";
   }
 
-  // For unknown types, use the amount direction
-  console.log(`Unknown activity type: ${activityType}, using amount direction`);
   return isPositiveAmount ? "INCOME" : "EXPENSE";
 }
 
@@ -156,7 +164,7 @@ async function processActivity(
 ): Promise<{ created: boolean; id: string }> {
   // Use activity ID as reference (it's unique)
   const refNumber = `activity-${activity.id}`;
-  
+
   // Check if already exists
   const existing = await db.transaction.findUnique({
     where: { wiseRefNumber: refNumber },
@@ -174,7 +182,6 @@ async function processActivity(
   // Parse the primary amount
   const parsedAmount = parseActivityAmount(activity.primaryAmount);
   if (!parsedAmount) {
-    console.warn(`Could not parse activity amount: ${activity.primaryAmount}`);
     return { created: false, id: "" };
   }
 
@@ -194,14 +201,15 @@ async function processActivity(
   }
 
   // Clean title for description (remove HTML tags)
-  const description = activity.title.replace(/<[^>]*>/g, "").trim() || activity.description || "Unknown transaction";
+  const description =
+    activity.title.replace(/<[^>]*>/g, "").trim() || activity.description || "Unknown transaction";
 
   // Auto-categorize
   const categoryId = await autoCategorize(description);
 
   // Determine transaction type based on activity type and amount direction
   const type = determineTransactionType(activity.type, isPositive);
-  
+
   // Skip activities that don't represent real transactions (e.g., CARD_CHECK)
   if (type === null) {
     return { created: false, id: "" };
@@ -238,8 +246,14 @@ export interface SyncResult {
 
 /**
  * Sync all data from Wise for a user
+ *
+ * @param userId - The user ID to sync data for
+ * @param mode - "light" (incremental, from last sync) or "full" (complete history)
  */
-export async function syncWiseData(userId: string): Promise<SyncResult> {
+export async function syncWiseData(
+  userId: string,
+  mode: WiseSyncMode = "light"
+): Promise<SyncResult> {
   const client = getWiseClient();
   let transactionsAdded = 0;
   let balancesUpdated = 0;
@@ -282,17 +296,24 @@ export async function syncWiseData(userId: string): Promise<SyncResult> {
         balancesUpdated++;
       }
 
-      // Get all historical transactions using Activity API
-      // Wise typically has data going back several years
+      // Determine date range based on mode
+      let startDate: Date;
       const endDate = new Date();
-      const startDate = subYears(endDate, 10); // Fetch up to 10 years of history
+
+      if (mode === "full") {
+        // Full sync: Get all historical data (up to 10 years)
+        startDate = subYears(endDate, 10);
+      } else {
+        // Light sync: From last sync date or last 7 days if never synced
+        if (profile.lastSyncAt) {
+          startDate = profile.lastSyncAt;
+        } else {
+          startDate = subDays(endDate, 7);
+        }
+      }
 
       try {
-        const activities = await client.getAllActivities(
-          apiProfile.id,
-          startDate,
-          endDate
-        );
+        const activities = await client.getAllActivities(apiProfile.id, startDate, endDate);
 
         for (const activity of activities) {
           const result = await processActivity(activity, profile.id);
@@ -300,12 +321,8 @@ export async function syncWiseData(userId: string): Promise<SyncResult> {
             transactionsAdded++;
           }
         }
-        console.log(`Synced ${activities.length} activities for profile ${apiProfile.id}`);
-      } catch (activityError) {
-        console.error(
-          `Activity API failed for profile ${apiProfile.id}:`,
-          activityError
-        );
+      } catch {
+        // Activity API failed, continue with next profile
       }
 
       // Update last sync time
@@ -337,8 +354,7 @@ export async function syncWiseData(userId: string): Promise<SyncResult> {
       balancesUpdated,
     };
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
     // Log failed sync
     await db.syncLog.create({

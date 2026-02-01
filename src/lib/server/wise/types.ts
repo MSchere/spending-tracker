@@ -1,8 +1,3 @@
-// =============================================================================
-// Wise API Types
-// Based on Wise API documentation: https://docs.wise.com/api-docs/
-// =============================================================================
-
 /**
  * Wise Profile (Personal or Business)
  */
@@ -65,10 +60,6 @@ export interface WiseApiError {
     path?: string;
   }>;
 }
-
-// =============================================================================
-// Activity API Types (alternative to Balance Statements for read-only tokens)
-// =============================================================================
 
 /**
  * Activity resource reference

@@ -1,30 +1,30 @@
 "use client";
 
-import { usePrivateMode } from "@/components/providers/private-mode-provider";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { 
-  ArrowDownIcon, 
-  ArrowUpIcon, 
-  TrendingUp, 
-  Wallet,
-  Target,
-  PiggyBank 
-} from "lucide-react";
-import {
+  BudgetProgressChart,
   CashFlowChart,
   CategorySpendingChart,
-  BudgetProgressChart,
+  type BudgetProgressData,
   type CashFlowData,
   type CategorySpendingData,
-  type BudgetProgressData,
 } from "@/components/charts";
+import { usePrivateMode } from "@/components/providers/private-mode-provider";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SummaryCard } from "@/components/ui/summary-card";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CalendarClock,
+  Coins,
+  Landmark,
+  LineChart,
+  Package,
+  PiggyBank,
+  Target,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
+import Link from "next/link";
 
 interface DashboardStats {
   income: number;
@@ -48,6 +48,18 @@ interface DashboardStats {
       color: string | null;
     } | null;
   }>;
+  upcomingRecurring: Array<{
+    id: string;
+    name: string;
+    amount: number;
+    currency: string;
+    frequency: string;
+    nextDueDate: string;
+    category: {
+      name: string;
+      color: string | null;
+    } | null;
+  }>;
 }
 
 interface DashboardContentProps {
@@ -57,6 +69,32 @@ interface DashboardContentProps {
   budgetProgressData: BudgetProgressData[];
   monthName: string;
   userName: string;
+  investmentSummary: {
+    totalValue: number;
+    totalReturns: number;
+    totalReturnsPercent: number;
+  } | null;
+  financialAssetsSummary: {
+    totalValue: number;
+    totalCost: number;
+    totalGainLoss: number;
+    totalGainLossPercent: number;
+    assetCount: number;
+  } | null;
+  tangibleAssetsSummary: {
+    totalCurrentValue: number;
+    totalPurchasePrice: number;
+    totalDepreciation: number;
+    depreciationPercent: number;
+    assetCount: number;
+  } | null;
+  netWorth: {
+    cash: number;
+    indexa: number;
+    financialAssets: number;
+    tangibleAssets: number;
+    total: number;
+  };
 }
 
 function formatCurrency(amount: number): string {
@@ -66,19 +104,13 @@ function formatCurrency(amount: number): string {
   });
 }
 
-function PrivateValue({ 
-  children, 
-  className 
-}: { 
-  children: React.ReactNode; 
-  className?: string;
-}) {
+function PrivateValue({ children, className }: { children: React.ReactNode; className?: string }) {
   const { isPrivate } = usePrivateMode();
-  
+
   if (isPrivate) {
     return <span className={className}>••••••</span>;
   }
-  
+
   return <span className={className}>{children}</span>;
 }
 
@@ -89,6 +121,10 @@ export function DashboardContent({
   budgetProgressData,
   monthName,
   userName,
+  investmentSummary,
+  financialAssetsSummary,
+  tangibleAssetsSummary,
+  netWorth,
 }: DashboardContentProps) {
   const { isPrivate } = usePrivateMode();
 
@@ -96,80 +132,49 @@ export function DashboardContent({
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome back, {userName}
-        </p>
+        <p className="text-muted-foreground">Welcome back, {userName}</p>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              <PrivateValue>{formatCurrency(stats.totalBalance)}</PrivateValue>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Across all Wise accounts
-            </p>
-          </CardContent>
-        </Card>
+        <SummaryCard
+          title="Net Worth"
+          value={<PrivateValue>{formatCurrency(netWorth.total)}</PrivateValue>}
+          description="All assets combined"
+          icon={Landmark}
+        />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {monthName} Income
-            </CardTitle>
-            <ArrowDownIcon className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              <PrivateValue>+{formatCurrency(stats.income)}</PrivateValue>
-            </div>
-            <p className="text-xs text-muted-foreground">Total incoming</p>
-          </CardContent>
-        </Card>
+        <SummaryCard
+          title={`${monthName} Income`}
+          value={<PrivateValue>+{formatCurrency(stats.income)}</PrivateValue>}
+          description="Total incoming"
+          icon={ArrowDownIcon}
+          iconColor="text-green-500"
+          valueColor="text-green-600"
+        />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {monthName} Expenses
-            </CardTitle>
-            <ArrowUpIcon className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              <PrivateValue>-{formatCurrency(stats.expenses)}</PrivateValue>
-            </div>
-            <p className="text-xs text-muted-foreground">Total outgoing</p>
-          </CardContent>
-        </Card>
+        <SummaryCard
+          title={`${monthName} Expenses`}
+          value={<PrivateValue>-{formatCurrency(stats.expenses)}</PrivateValue>}
+          description="Total outgoing"
+          icon={ArrowUpIcon}
+          iconColor="text-red-500"
+          valueColor="text-red-600"
+        />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Cash Flow</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`text-2xl font-bold ${
-                stats.netFlow >= 0 ? "text-green-600" : "text-red-600"
-              }`}
-            >
-              <PrivateValue>
-                {stats.netFlow >= 0 ? "+" : ""}
-                {formatCurrency(stats.netFlow)}
-              </PrivateValue>
-            </div>
-            <p className="text-xs text-muted-foreground">This month</p>
-          </CardContent>
-        </Card>
+        <SummaryCard
+          title="Net Cash Flow"
+          value={
+            <PrivateValue>
+              {stats.netFlow >= 0 ? "+" : ""}
+              {formatCurrency(stats.netFlow)}
+            </PrivateValue>
+          }
+          description="This month"
+          icon={TrendingUp}
+          valueColor={stats.netFlow >= 0 ? "text-green-600" : "text-red-600"}
+        />
       </div>
 
-      {/* Charts Row */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -204,27 +209,214 @@ export function DashboardContent({
         </Card>
       </div>
 
-      {/* Budget Progress Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Budget Progress</CardTitle>
-          <CardDescription>
-            {monthName} spending vs budgets
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isPrivate ? (
-            <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-              Chart hidden in private mode
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Wallet className="h-5 w-5" />
+              <CardTitle>Net Worth Breakdown</CardTitle>
             </div>
-          ) : (
-            <BudgetProgressChart data={budgetProgressData} />
-          )}
-        </CardContent>
-      </Card>
+            <CardDescription>Assets by category</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  Cash
+                </span>
+                <span className="font-medium">
+                  <PrivateValue>{formatCurrency(netWorth.cash)}</PrivateValue>
+                </span>
+              </div>
+              {netWorth.indexa > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-purple-500" />
+                    Investment Funds
+                  </span>
+                  <span className="font-medium">
+                    <PrivateValue>{formatCurrency(netWorth.indexa)}</PrivateValue>
+                  </span>
+                </div>
+              )}
+              {netWorth.financialAssets > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    Stocks & Crypto
+                  </span>
+                  <span className="font-medium">
+                    <PrivateValue>{formatCurrency(netWorth.financialAssets)}</PrivateValue>
+                  </span>
+                </div>
+              )}
+              {netWorth.tangibleAssets > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-orange-500" />
+                    Tangible Assets
+                  </span>
+                  <span className="font-medium">
+                    <PrivateValue>{formatCurrency(netWorth.tangibleAssets)}</PrivateValue>
+                  </span>
+                </div>
+              )}
+              <div className="border-t pt-2 flex justify-between text-sm font-medium">
+                <span>Total</span>
+                <span>
+                  <PrivateValue>{formatCurrency(netWorth.total)}</PrivateValue>
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Budget Progress</CardTitle>
+            <CardDescription>{monthName} spending vs budgets</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isPrivate ? (
+              <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+                Chart hidden in private mode
+              </div>
+            ) : (
+              <BudgetProgressChart data={budgetProgressData} />
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Secondary Cards */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {investmentSummary && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <LineChart className="h-5 w-5" />
+                <CardTitle>Indexa Capital</CardTitle>
+              </div>
+              <CardDescription>Long-term investments</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Portfolio Value</span>
+                  <span className="font-medium">
+                    <PrivateValue>{formatCurrency(investmentSummary.totalValue)}</PrivateValue>
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Returns</span>
+                  <span
+                    className={`font-medium ${
+                      investmentSummary.totalReturns >= 0 ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    <PrivateValue>
+                      {investmentSummary.totalReturns >= 0 ? "+" : ""}
+                      {formatCurrency(investmentSummary.totalReturns)} (
+                      {investmentSummary.totalReturnsPercent >= 0 ? "+" : ""}
+                      {investmentSummary.totalReturnsPercent.toFixed(2)}%)
+                    </PrivateValue>
+                  </span>
+                </div>
+                <Link
+                  href="/investments"
+                  className="text-sm text-primary hover:underline block mt-2"
+                >
+                  View details →
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {financialAssetsSummary && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Coins className="h-5 w-5" />
+                <CardTitle>Stocks & Crypto</CardTitle>
+              </div>
+              <CardDescription>
+                {financialAssetsSummary.assetCount} asset
+                {financialAssetsSummary.assetCount !== 1 ? "s" : ""}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Total Value</span>
+                  <span className="font-medium">
+                    <PrivateValue>{formatCurrency(financialAssetsSummary.totalValue)}</PrivateValue>
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Gain/Loss</span>
+                  <span
+                    className={`font-medium ${
+                      financialAssetsSummary.totalGainLoss >= 0 ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    <PrivateValue>
+                      {financialAssetsSummary.totalGainLoss >= 0 ? "+" : ""}
+                      {formatCurrency(financialAssetsSummary.totalGainLoss)} (
+                      {financialAssetsSummary.totalGainLossPercent >= 0 ? "+" : ""}
+                      {financialAssetsSummary.totalGainLossPercent.toFixed(2)}%)
+                    </PrivateValue>
+                  </span>
+                </div>
+                <Link
+                  href="/financial-assets"
+                  className="text-sm text-primary hover:underline block mt-2"
+                >
+                  View details →
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {tangibleAssetsSummary && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                <CardTitle>Tangible Assets</CardTitle>
+              </div>
+              <CardDescription>
+                {tangibleAssetsSummary.assetCount} asset
+                {tangibleAssetsSummary.assetCount !== 1 ? "s" : ""}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Current Value</span>
+                  <span className="font-medium">
+                    <PrivateValue>
+                      {formatCurrency(tangibleAssetsSummary.totalCurrentValue)}
+                    </PrivateValue>
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Depreciation</span>
+                  <span className="font-medium text-orange-600">
+                    <PrivateValue>
+                      -{formatCurrency(tangibleAssetsSummary.totalDepreciation)} (-
+                      {tangibleAssetsSummary.depreciationPercent.toFixed(1)}%)
+                    </PrivateValue>
+                  </span>
+                </div>
+                <Link href="/assets" className="text-sm text-primary hover:underline block mt-2">
+                  View details →
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -239,14 +431,16 @@ export function DashboardContent({
           <CardContent>
             {stats.budgetsCount === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No budgets set up yet. Create one to start tracking your
-                spending limits.
+                No budgets set up yet. Create one to start tracking your spending limits.
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">
                 Track your spending against your budgets in the Budgets section.
               </p>
             )}
+            <Link href="/budgets" className="text-sm text-primary hover:underline block mt-2">
+              View details →
+            </Link>
           </CardContent>
         </Card>
 
@@ -272,7 +466,8 @@ export function DashboardContent({
                   <span>Total Progress</span>
                   <span>
                     <PrivateValue>
-                      {formatCurrency(stats.savingsGoals.current)} / {formatCurrency(stats.savingsGoals.target)}
+                      {formatCurrency(stats.savingsGoals.current)} /{" "}
+                      {formatCurrency(stats.savingsGoals.target)}
                     </PrivateValue>
                   </span>
                 </div>
@@ -280,87 +475,64 @@ export function DashboardContent({
                   <div
                     className="h-full bg-primary transition-all"
                     style={{
-                      width: isPrivate ? "0%" : `${Math.min(
-                        100,
-                        (stats.savingsGoals.current / stats.savingsGoals.target) *
-                          100
-                      )}%`,
+                      width: isPrivate
+                        ? "0%"
+                        : `${Math.min(
+                            100,
+                            (stats.savingsGoals.current / stats.savingsGoals.target) * 100
+                          )}%`,
                     }}
                   />
                 </div>
               </div>
             )}
+            <Link href="/savings" className="text-sm text-primary hover:underline block mt-2">
+              View details →
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5" />
+              <CardTitle>Upcoming Expenses</CardTitle>
+            </div>
+            <CardDescription>Next recurring payments due</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {stats.upcomingRecurring.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No recurring expenses set up yet. Add some to track upcoming payments.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {stats.upcomingRecurring.map((expense) => (
+                  <div key={expense.id} className="flex items-center justify-between text-sm">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{expense.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(expense.nextDueDate).toLocaleDateString("de-DE")}
+                      </p>
+                    </div>
+                    <span className="font-medium text-right">
+                      <PrivateValue>
+                        {expense.amount.toLocaleString("de-DE", {
+                          style: "currency",
+                          currency: expense.currency,
+                        })}
+                      </PrivateValue>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Link href="/recurring" className="text-sm text-primary hover:underline block mt-2">
+              View details →
+            </Link>
           </CardContent>
         </Card>
       </div>
-
-      {/* Recent Transactions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Transactions</CardTitle>
-          <CardDescription>
-            Your latest transactions from this month
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {stats.recentTransactions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No transactions yet. Sync with Wise to import your transactions.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {stats.recentTransactions.map((transaction) => (
-                <div
-                  key={transaction.id}
-                  className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3"
-                >
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      transaction.type === "INCOME"
-                        ? "bg-green-500"
-                        : "bg-red-500"
-                    }`}
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {transaction.description || "Unknown"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(transaction.date).toLocaleDateString("de-DE")}
-                    </p>
-                  </div>
-                  <div className="w-32 text-right">
-                    {transaction.category && (
-                      <Badge 
-                        variant="outline"
-                        className="truncate max-w-full"
-                        style={{
-                          borderColor: transaction.category.color || undefined,
-                          color: transaction.category.color || undefined,
-                        }}
-                      >
-                        {transaction.category.name}
-                      </Badge>
-                    )}
-                  </div>
-                  <span
-                    className={`font-medium w-28 text-right ${
-                      transaction.type === "INCOME"
-                        ? "text-green-600"
-                        : "text-red-600"
-                    }`}
-                  >
-                    <PrivateValue>
-                      {transaction.type === "INCOME" ? "+" : "-"}
-                      {formatCurrency(Math.abs(transaction.amountEur))}
-                    </PrivateValue>
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -8,22 +8,29 @@ export const env = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     DATABASE_URL: z.string().url(),
-    
+
     // NextAuth
-    NEXTAUTH_SECRET: process.env.NODE_ENV === "production" 
-      ? z.string().min(32) 
-      : z.string().min(1),
+    NEXTAUTH_SECRET: process.env.NODE_ENV === "production" ? z.string().min(32) : z.string().min(1),
     NEXTAUTH_URL: z.preprocess(
       (str) => process.env.VERCEL_URL ?? str,
       process.env.VERCEL ? z.string() : z.string().url()
     ),
-    
+
     // Encryption for 2FA secrets
     ENCRYPTION_KEY: z.string().length(32, "Encryption key must be exactly 32 characters"),
-    
+
     // Wise API
     WISE_API_TOKEN: z.string().min(1, "Wise API token is required"),
     WISE_ENVIRONMENT: z.enum(["sandbox", "production"]).default("production"),
+
+    // Indexa Capital API (optional)
+    INDEXA_API_TOKEN: z.string().optional(),
+    INDEXA_USERNAME: z.string().optional(),
+    INDEXA_PASSWORD: z.string().optional(),
+    INDEXA_DOCUMENT: z.string().optional(),
+
+    // Alpha Vantage API (optional - for stocks/crypto prices)
+    ALPHA_VANTAGE_API_KEY: z.string().optional(),
   },
 
   /**
@@ -44,6 +51,11 @@ export const env = createEnv({
     ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
     WISE_API_TOKEN: process.env.WISE_API_TOKEN,
     WISE_ENVIRONMENT: process.env.WISE_ENVIRONMENT,
+    INDEXA_API_TOKEN: process.env.INDEXA_API_TOKEN,
+    INDEXA_USERNAME: process.env.INDEXA_USERNAME,
+    INDEXA_PASSWORD: process.env.INDEXA_PASSWORD,
+    INDEXA_DOCUMENT: process.env.INDEXA_DOCUMENT,
+    ALPHA_VANTAGE_API_KEY: process.env.ALPHA_VANTAGE_API_KEY,
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
   },
 

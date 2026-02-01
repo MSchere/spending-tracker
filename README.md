@@ -1,15 +1,19 @@
 # Spending Tracker
 
-A self-hosted personal finance dashboard that connects to the Wise API for automatic expense tracking, budget management, savings goals, and financial metrics visualization.
+A self-hosted personal finance dashboard with automatic expense tracking, investment portfolio management, budget tracking, and financial metrics visualization.
 
 ## Features
 
 - **Wise Integration**: Automatically sync transactions from your Wise account
+- **Indexa Capital Integration**: Track your Indexa Capital investment portfolios
+- **Financial Assets**: Track stocks, ETFs, and crypto with real-time prices via Alpha Vantage API
+- **Tangible Assets**: Track physical assets (vehicles, electronics, real estate) with depreciation calculations
 - **Transaction Management**: View, search, filter, and categorize transactions
 - **Budget Tracking**: Set monthly budgets per category with progress visualization
 - **Savings Goals**: Track progress toward financial goals
 - **Recurring Expenses**: Monitor regular payments and subscriptions
-- **Dashboard**: Visual overview with charts for cash flow, spending by category, and budget progress
+- **Dashboard**: Visual overview with charts for cash flow, spending by category, net worth breakdown, and investment performance
+- **Privacy Mode**: Toggle to mask sensitive financial data
 - **Secure Authentication**: Email/password with mandatory TOTP 2FA
 
 ## Tech Stack
@@ -34,7 +38,7 @@ A self-hosted personal finance dashboard that connects to the Wise API for autom
 ### 1. Clone and Install
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/MSchere/spending-tracker.git
 cd spending_tracker
 pnpm install
 ```
@@ -61,6 +65,16 @@ ENCRYPTION_KEY="your-32-character-encryption-key"
 # Wise API
 WISE_API_TOKEN="your-wise-api-token"
 WISE_ENVIRONMENT="production"  # or "sandbox" for testing
+
+# Indexa Capital (optional - choose one auth method)
+INDEXA_API_TOKEN="your-indexa-token"
+# OR
+INDEXA_USERNAME="your-username"
+INDEXA_PASSWORD="your-password"
+INDEXA_DOCUMENT="your-document-id"
+
+# Alpha Vantage (optional - for stocks/crypto prices)
+ALPHA_VANTAGE_API_KEY="your-api-key"
 ```
 
 ### 3. Start Database
@@ -114,6 +128,12 @@ ENCRYPTION_KEY="generate-32-char-key-here"
 WISE_API_TOKEN="your-wise-api-token"
 WISE_ENVIRONMENT="production"
 
+# Indexa Capital (optional)
+INDEXA_API_TOKEN="your-indexa-token"
+
+# Alpha Vantage (optional)
+ALPHA_VANTAGE_API_KEY="your-api-key"
+
 # Optional
 APP_PORT="3000"
 ```
@@ -162,20 +182,20 @@ server {
 
 ## Available Scripts
 
-| Command              | Description                        |
-| -------------------- | ---------------------------------- |
-| `pnpm dev`           | Start development server           |
-| `pnpm build`         | Build for production               |
-| `pnpm start`         | Start production server            |
-| `pnpm lint`          | Run ESLint                         |
-| `pnpm format`        | Format code with Prettier          |
-| `pnpm format:check`  | Check formatting                   |
-| `pnpm typecheck`     | Run TypeScript type checking       |
-| `pnpm db:generate`   | Generate Prisma client             |
-| `pnpm db:migrate`    | Run database migrations            |
-| `pnpm db:push`       | Push schema changes (development)  |
-| `pnpm db:studio`     | Open Prisma Studio                 |
-| `pnpm db:seed`       | Seed default categories            |
+| Command             | Description                       |
+| ------------------- | --------------------------------- |
+| `pnpm dev`          | Start development server          |
+| `pnpm build`        | Build for production              |
+| `pnpm start`        | Start production server           |
+| `pnpm lint`         | Run ESLint                        |
+| `pnpm format`       | Format code with Prettier         |
+| `pnpm format:check` | Check formatting                  |
+| `pnpm typecheck`    | Run TypeScript type checking      |
+| `pnpm db:generate`  | Generate Prisma client            |
+| `pnpm db:migrate`   | Run database migrations           |
+| `pnpm db:push`      | Push schema changes (development) |
+| `pnpm db:studio`    | Open Prisma Studio                |
+| `pnpm db:seed`      | Seed default categories           |
 
 ## Project Structure
 
@@ -193,17 +213,32 @@ spending_tracker/
 │   ├── app/                # Next.js App Router pages
 │   │   ├── (auth)/         # Auth pages (login, register, 2fa)
 │   │   ├── (authenticated)/ # Protected pages
+│   │   │   ├── dashboard/
+│   │   │   ├── transactions/
+│   │   │   ├── investments/     # Indexa Capital portfolios
+│   │   │   ├── financial-assets/ # Stocks, ETFs, crypto
+│   │   │   ├── assets/          # Tangible assets
+│   │   │   ├── budgets/
+│   │   │   ├── savings/
+│   │   │   ├── recurring/
+│   │   │   └── settings/
 │   │   └── api/            # API routes
 │   ├── components/
 │   │   ├── charts/         # Dashboard chart components
+│   │   ├── icons/          # Custom icons
 │   │   ├── layout/         # Layout components
+│   │   ├── providers/      # Context providers
 │   │   └── ui/             # ShadCN UI components
 │   └── lib/
 │       ├── server/         # Server-side utilities
-│       │   ├── auth/       # NextAuth configuration
-│       │   ├── db/         # Prisma client
-│       │   └── wise/       # Wise API client & sync
-│       └── utils.ts        # Shared utilities
+│       │   ├── alphavantage/  # Alpha Vantage API client
+│       │   ├── assets/        # Tangible assets & depreciation
+│       │   ├── auth/          # NextAuth configuration
+│       │   ├── db/            # Prisma client
+│       │   ├── indexa/        # Indexa Capital API client
+│       │   ├── sync/          # Unified sync orchestrator
+│       │   └── wise/          # Wise API client & sync
+│       └── utils/          # Shared utilities
 └── .env.example            # Environment template
 ```
 
@@ -211,7 +246,7 @@ spending_tracker/
 
 1. Register an account at `/register`
 2. Set up 2FA (mandatory) - scan QR code with authenticator app
-3. Go to Settings and add your Wise API token
+3. Go to Settings and configure your API integrations
 4. Click "Sync Now" to import transactions
 5. View your dashboard!
 

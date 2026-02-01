@@ -18,23 +18,13 @@ function PrivateModeToggle() {
       onClick={togglePrivateMode}
       title={isPrivate ? "Show balances" : "Hide balances"}
     >
-      {isPrivate ? (
-        <EyeOff className="h-5 w-5" />
-      ) : (
-        <Eye className="h-5 w-5" />
-      )}
-      <span className="sr-only">
-        {isPrivate ? "Show balances" : "Hide balances"}
-      </span>
+      {isPrivate ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+      <span className="sr-only">{isPrivate ? "Show balances" : "Hide balances"}</span>
     </Button>
   );
 }
 
-export default function AuthenticatedLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
     <PrivateModeProvider>
       <SidebarProvider>
@@ -42,8 +32,8 @@ export default function AuthenticatedLayout({
         <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center gap-4 border-b bg-sidebar px-4 lg:px-6">
           <SidebarTrigger className="-ml-1" />
           <Link href="/dashboard" className="flex items-center gap-2">
-            <PiggyBank className="h-6 w-6" />
-            <span className="font-semibold text-lg">Spending Tracker</span>
+            <PiggyBank className="h-6 w-6 text-gold" />
+            <span className="font-semibold text-gold text-lg">Spending Tracker</span>
           </Link>
           <div className="flex-1" />
           <PrivateModeToggle />

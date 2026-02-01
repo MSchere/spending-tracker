@@ -1,10 +1,6 @@
 import * as React from "react";
 
-interface WiseIconProps extends React.SVGProps<SVGSVGElement> {
-  className?: string;
-}
-
-export function WiseIcon({ className, ...props }: WiseIconProps) {
+export function WiseIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       role="img"
@@ -13,6 +9,7 @@ export function WiseIcon({ className, ...props }: WiseIconProps) {
       id="Wise--Streamline-Simple-Icons"
       height="24"
       width="24"
+      {...props}
     >
       <desc>Wise Streamline Icon: https://streamlinehq.com</desc>
       <title>Wise</title>

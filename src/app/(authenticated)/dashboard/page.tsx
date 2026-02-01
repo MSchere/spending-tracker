@@ -6,17 +6,20 @@ import {
   type BudgetProgressData,
 } from "@/components/charts";
 import { DashboardContent } from "./dashboard-content";
+import { getIndexaPortfolioSummary, isIndexaConfigured } from "@/lib/server/indexa";
+import { getFinancialAssetsTotals } from "@/lib/server/alphavantage";
+import { getTangibleAssetsTotals } from "@/lib/server/assets";
 
 // Color palette for category chart
 const CATEGORY_COLORS = [
   "hsl(221, 83%, 53%)", // blue
   "hsl(262, 83%, 58%)", // purple
   "hsl(142, 76%, 36%)", // green
-  "hsl(38, 92%, 50%)",  // orange
-  "hsl(0, 84%, 60%)",   // red
+  "hsl(38, 92%, 50%)", // orange
+  "hsl(0, 84%, 60%)", // red
   "hsl(199, 89%, 48%)", // cyan
   "hsl(340, 82%, 52%)", // pink
-  "hsl(45, 93%, 47%)",  // yellow
+  "hsl(45, 93%, 47%)", // yellow
   "hsl(172, 66%, 50%)", // teal
   "hsl(292, 84%, 61%)", // magenta
 ];
@@ -29,7 +32,7 @@ async function getAllDashboardData(userId: string) {
   const now = new Date();
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  
+
   // Get start of 6 months ago for cash flow chart
   const sixMonthsAgoStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
@@ -49,6 +52,7 @@ async function getAllDashboardData(userId: string) {
       wiseBalances: [],
       budgets: [],
       savingsGoals: [],
+      recurringExpenses: [],
     };
   }
 
@@ -62,6 +66,8 @@ async function getAllDashboardData(userId: string) {
     budgets,
     // Savings goals
     savingsGoals,
+    // Upcoming recurring expenses
+    recurringExpenses,
   ] = await Promise.all([
     db.transaction.findMany({
       where: {
@@ -98,6 +104,18 @@ async function getAllDashboardData(userId: string) {
         isCompleted: false,
       },
     }),
+    db.recurringExpense.findMany({
+      where: {
+        isActive: true,
+      },
+      include: {
+        category: true,
+      },
+      orderBy: {
+        nextDueDate: "asc",
+      },
+      take: 5,
+    }),
   ]);
 
   // Filter current month transactions from the 6-month data
@@ -112,6 +130,7 @@ async function getAllDashboardData(userId: string) {
     wiseBalances,
     budgets,
     savingsGoals,
+    recurringExpenses,
   };
 }
 
@@ -119,7 +138,7 @@ async function getAllDashboardData(userId: string) {
  * Process fetched data into dashboard stats
  */
 function calculateDashboardStats(data: Awaited<ReturnType<typeof getAllDashboardData>>) {
-  const { currentMonthTransactions, wiseBalances, budgets, savingsGoals } = data;
+  const { currentMonthTransactions, wiseBalances, budgets, savingsGoals, recurringExpenses } = data;
 
   // Calculate income and expenses for current month
   const income = currentMonthTransactions
@@ -131,20 +150,11 @@ function calculateDashboardStats(data: Awaited<ReturnType<typeof getAllDashboard
     .reduce((sum, t) => sum + Math.abs(t.amountEur.toNumber()), 0);
 
   // Total balance across all Wise accounts
-  const totalBalance = wiseBalances.reduce(
-    (sum, b) => sum + b.amount.toNumber(),
-    0
-  );
+  const totalBalance = wiseBalances.reduce((sum, b) => sum + b.amount.toNumber(), 0);
 
   // Savings goals summary
-  const totalSavingsTarget = savingsGoals.reduce(
-    (sum, g) => sum + g.targetAmount.toNumber(),
-    0
-  );
-  const totalSavingsCurrent = savingsGoals.reduce(
-    (sum, g) => sum + g.currentAmount.toNumber(),
-    0
-  );
+  const totalSavingsTarget = savingsGoals.reduce((sum, g) => sum + g.targetAmount.toNumber(), 0);
+  const totalSavingsCurrent = savingsGoals.reduce((sum, g) => sum + g.currentAmount.toNumber(), 0);
 
   // Serialize recent transactions for client component
   const recentTransactions = currentMonthTransactions.slice(0, 5).map((t) => ({
@@ -153,10 +163,28 @@ function calculateDashboardStats(data: Awaited<ReturnType<typeof getAllDashboard
     description: t.description,
     date: t.date.toISOString(),
     amountEur: t.amountEur.toNumber(),
-    category: t.category ? {
-      name: t.category.name,
-      color: t.category.color,
-    } : null,
+    category: t.category
+      ? {
+          name: t.category.name,
+          color: t.category.color,
+        }
+      : null,
+  }));
+
+  // Serialize upcoming recurring expenses for client component
+  const upcomingRecurring = recurringExpenses.map((r) => ({
+    id: r.id,
+    name: r.name,
+    amount: r.amount.toNumber(),
+    currency: r.currency,
+    frequency: r.frequency,
+    nextDueDate: r.nextDueDate.toISOString(),
+    category: r.category
+      ? {
+          name: r.category.name,
+          color: r.category.color,
+        }
+      : null,
   }));
 
   return {
@@ -171,6 +199,7 @@ function calculateDashboardStats(data: Awaited<ReturnType<typeof getAllDashboard
       current: totalSavingsCurrent,
     },
     recentTransactions,
+    upcomingRecurring,
   };
 }
 
@@ -258,7 +287,7 @@ function calculateBudgetProgressData(
 ): BudgetProgressData[] {
   // Pre-calculate net spending by category (expenses minus refunds)
   const spendingByCategory = new Map<string, number>();
-  
+
   for (const tx of transactions) {
     if ((tx.type === "EXPENSE" || tx.type === "INCOME") && tx.categoryId) {
       const current = spendingByCategory.get(tx.categoryId) || 0;
@@ -302,6 +331,59 @@ export default async function DashboardPage() {
     allData.currentMonthTransactions
   );
 
+  // Fetch all asset summaries in parallel
+  const [indexaPortfolio, financialAssetsTotals, tangibleAssetsTotals] = await Promise.all([
+    isIndexaConfigured() ? getIndexaPortfolioSummary(session.user.id) : null,
+    getFinancialAssetsTotals(session.user.id),
+    getTangibleAssetsTotals(session.user.id),
+  ]);
+
+  // Build investment summary (Indexa)
+  const investmentSummary = indexaPortfolio
+    ? {
+        totalValue: indexaPortfolio.totalValue,
+        totalReturns: indexaPortfolio.totalReturns,
+        totalReturnsPercent: indexaPortfolio.totalReturnsPercent,
+      }
+    : null;
+
+  // Build financial assets summary (Stocks/Crypto)
+  const financialAssetsSummary =
+    financialAssetsTotals.assetCount > 0
+      ? {
+          totalValue: financialAssetsTotals.totalValue,
+          totalCost: financialAssetsTotals.totalCost,
+          totalGainLoss: financialAssetsTotals.totalGainLoss,
+          totalGainLossPercent: financialAssetsTotals.totalGainLossPercent,
+          assetCount: financialAssetsTotals.assetCount,
+        }
+      : null;
+
+  // Build tangible assets summary
+  const tangibleAssetsSummary =
+    tangibleAssetsTotals.assetCount > 0
+      ? {
+          totalCurrentValue: tangibleAssetsTotals.totalCurrentValue,
+          totalPurchasePrice: tangibleAssetsTotals.totalPurchasePrice,
+          totalDepreciation: tangibleAssetsTotals.totalDepreciation,
+          depreciationPercent: tangibleAssetsTotals.depreciationPercent,
+          assetCount: tangibleAssetsTotals.assetCount,
+        }
+      : null;
+
+  // Calculate total net worth
+  const netWorth = {
+    cash: stats.totalBalance,
+    indexa: investmentSummary?.totalValue ?? 0,
+    financialAssets: financialAssetsSummary?.totalValue ?? 0,
+    tangibleAssets: tangibleAssetsSummary?.totalCurrentValue ?? 0,
+    total:
+      stats.totalBalance +
+      (investmentSummary?.totalValue ?? 0) +
+      (financialAssetsSummary?.totalValue ?? 0) +
+      (tangibleAssetsSummary?.totalCurrentValue ?? 0),
+  };
+
   const monthName = new Date().toLocaleString("default", { month: "long" });
 
   return (
@@ -312,6 +394,10 @@ export default async function DashboardPage() {
       budgetProgressData={budgetProgressData}
       monthName={monthName}
       userName={session.user.name || session.user.email || "User"}
+      investmentSummary={investmentSummary}
+      financialAssetsSummary={financialAssetsSummary}
+      tangibleAssetsSummary={tangibleAssetsSummary}
+      netWorth={netWorth}
     />
   );
 }

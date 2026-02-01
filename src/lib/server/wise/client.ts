@@ -1,7 +1,3 @@
-// =============================================================================
-// Wise API Client
-// =============================================================================
-
 import type {
   WiseApiProfile,
   WiseApiBalance,
@@ -31,10 +27,7 @@ export class WiseClient {
   /**
    * Make an authenticated request to the Wise API
    */
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${WISE_API_URL}${endpoint}`;
 
     const response = await fetch(url, {
@@ -48,11 +41,7 @@ export class WiseClient {
 
     if (!response.ok) {
       const errorData = (await response.json().catch(() => ({}))) as WiseApiError;
-      throw new Error(
-        errorData.message ||
-          errorData.error ||
-          `Wise API error: ${response.status}`
-      );
+      throw new Error(errorData.message || errorData.error || `Wise API error: ${response.status}`);
     }
 
     return response.json() as Promise<T>;
@@ -77,10 +66,7 @@ export class WiseClient {
   /**
    * Get exchange rates
    */
-  async getExchangeRates(
-    source: string,
-    target: string
-  ): Promise<WiseApiExchangeRate[]> {
+  async getExchangeRates(source: string, target: string): Promise<WiseApiExchangeRate[]> {
     const params = new URLSearchParams({ source, target });
     return this.request<WiseApiExchangeRate[]>(`/v1/rates?${params}`);
   }
@@ -112,9 +98,7 @@ export class WiseClient {
       size: size.toString(),
     });
 
-    return this.request<WiseApiActivityResponse>(
-      `/v1/profiles/${profileId}/activities?${params}`
-    );
+    return this.request<WiseApiActivityResponse>(`/v1/profiles/${profileId}/activities?${params}`);
   }
 
   /**

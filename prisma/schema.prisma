@@ -23,9 +23,12 @@ model User {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  wiseProfiles  WiseProfile[]
-  budgets       Budget[]
-  savingsGoals  SavingsGoal[]
+  wiseProfiles     WiseProfile[]
+  budgets          Budget[]
+  savingsGoals     SavingsGoal[]
+  indexaAccounts   IndexaAccount[]
+  tangibleAssets   TangibleAsset[]
+  financialAssets  FinancialAsset[]
 }
 
 // ============================================================================
@@ -232,4 +235,153 @@ enum SyncStatus {
   SUCCESS
   FAILED
   PARTIAL
+}
+
+// ============================================================================
+// Indexa Capital Integration
+// ============================================================================
+
+model IndexaAccount {
+  id              String    @id @default(cuid())
+  userId          String
+  accountNumber   String    @unique // e.g., "PBKLBYZ5"
+  accountType     String             // "mutual" or "pension"
+  status          String             // "active", etc.
+  riskLevel       Int?               // 1-10
+  netContributions Decimal? @db.Decimal(18, 4) // Total deposits - withdrawals (Aportaciones)
+  lastSyncAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user      User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshots IndexaPortfolioSnapshot[]
+}
+
+model IndexaPortfolioSnapshot {
+  id             String   @id @default(cuid())
+  accountId      String
+  date           DateTime @db.Date
+  totalValue     Decimal  @db.Decimal(18, 4) // Current portfolio value
+  totalInvested  Decimal  @db.Decimal(18, 4) // Amount contributed
+  returns        Decimal  @db.Decimal(18, 4) // Profit/loss in EUR
+  returnsPercent Decimal  @db.Decimal(8, 4)  // Return percentage
+  createdAt      DateTime @default(now())
+
+  account  IndexaAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  holdings IndexaHolding[]
+
+  @@unique([accountId, date])
+}
+
+model IndexaHolding {
+  id             String  @id @default(cuid())
+  snapshotId     String
+  instrumentName String  // "Vanguard Global Stock", etc.
+  instrumentType String  // "Stocks", "Bonds", "Cash", etc.
+  isin           String?
+  shares         Decimal @db.Decimal(18, 8)
+  value          Decimal @db.Decimal(18, 4)
+  weight         Decimal @db.Decimal(5, 2) // Portfolio percentage
+
+  snapshot IndexaPortfolioSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================================
+// Tangible Assets (Physical assets that depreciate over time)
+// ============================================================================
+
+enum TangibleAssetCategory {
+  VEHICLE
+  REAL_ESTATE
+  ELECTRONICS
+  FURNITURE
+  JEWELRY
+  COLLECTIBLES
+  OTHER
+}
+
+enum DepreciationMethod {
+  STRAIGHT_LINE     // Linear: (Cost - Salvage) / Useful Life per year
+  DECLINING_BALANCE // Accelerated: Fixed % of remaining value per year
+  NONE              // No depreciation (real estate, collectibles)
+  MANUAL            // User enters valuations manually
+}
+
+model TangibleAsset {
+  id                 String                @id @default(cuid())
+  userId             String
+  name               String                // "2015 Peugeot 308"
+  description        String?
+  category           TangibleAssetCategory
+  purchaseDate       DateTime              @db.Date
+  purchasePrice      Decimal               @db.Decimal(18, 4)
+  currency           String                @default("EUR")
+  depreciationMethod DepreciationMethod    @default(STRAIGHT_LINE)
+  usefulLifeYears    Int?                  // For automatic depreciation
+  salvageValue       Decimal?              @db.Decimal(18, 4) // Residual value at end of life
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  user       User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  valuations TangibleAssetValuation[]
+
+  @@index([userId])
+}
+
+model TangibleAssetValuation {
+  id        String   @id @default(cuid())
+  assetId   String
+  date      DateTime @db.Date
+  value     Decimal  @db.Decimal(18, 4)
+  note      String?  // "Annual checkup", "Market adjustment"
+  createdAt DateTime @default(now())
+
+  asset TangibleAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, date])
+  @@index([assetId])
+}
+
+// ============================================================================
+// Financial Assets (Stocks, Crypto, ETFs - with Alpha Vantage price tracking)
+// ============================================================================
+
+enum FinancialAssetType {
+  STOCK
+  CRYPTO
+  ETF
+}
+
+model FinancialAsset {
+  id            String             @id @default(cuid())
+  userId        String
+  symbol        String             // "AAPL", "BTC", "VOO"
+  name          String             // "Apple Inc.", "Bitcoin", "Vanguard S&P 500 ETF"
+  type          FinancialAssetType
+  shares        Decimal            @db.Decimal(18, 8) // Supports fractional shares & crypto
+  avgCostBasis  Decimal            @db.Decimal(18, 4) // Average cost per share/unit
+  currency      String             @default("USD")    // Price currency from API
+  lastPrice     Decimal?           @db.Decimal(18, 4) // Latest price from API
+  lastPriceAt   DateTime?          // When price was last updated
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  user   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prices FinancialAssetPrice[]
+
+  @@unique([userId, symbol, type])
+  @@index([userId])
+}
+
+model FinancialAssetPrice {
+  id        String   @id @default(cuid())
+  assetId   String
+  date      DateTime @db.Date
+  price     Decimal  @db.Decimal(18, 4)
+  createdAt DateTime @default(now())
+
+  asset FinancialAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, date])
+  @@index([assetId])
 }

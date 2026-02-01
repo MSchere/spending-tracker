@@ -1,6 +1,8 @@
 import { auth } from "@/lib/server/auth";
 import { db } from "@/lib/server/db";
 import { SettingsForm } from "./settings-form";
+import { isIndexaConfigured } from "@/lib/server/indexa";
+import { isAlphaVantageConfigured } from "@/lib/server/alphavantage";
 
 async function getSettingsData(userId: string) {
   const user = await db.user.findUnique({
@@ -31,6 +33,8 @@ async function getSettingsData(userId: string) {
       : null,
     lastSyncStatus: lastSync?.status || null,
     wiseConfigured: !!process.env.WISE_API_TOKEN,
+    indexaConfigured: isIndexaConfigured(),
+    alphaVantageConfigured: isAlphaVantageConfigured(),
   };
 }
 
@@ -41,16 +45,20 @@ export default async function SettingsPage() {
     return null;
   }
 
-  const { user, appSettings, lastSyncStatus, wiseConfigured } =
-    await getSettingsData(session.user.id);
+  const {
+    user,
+    appSettings,
+    lastSyncStatus,
+    wiseConfigured,
+    indexaConfigured,
+    alphaVantageConfigured,
+  } = await getSettingsData(session.user.id);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your account and application settings
-        </p>
+        <p className="text-muted-foreground">Manage your account and application settings</p>
       </div>
 
       <SettingsForm
@@ -58,6 +66,8 @@ export default async function SettingsPage() {
         appSettings={appSettings}
         lastSyncStatus={lastSyncStatus}
         wiseConfigured={wiseConfigured}
+        indexaConfigured={indexaConfigured}
+        alphaVantageConfigured={alphaVantageConfigured}
       />
     </div>
   );

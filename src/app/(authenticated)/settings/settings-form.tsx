@@ -1,16 +1,14 @@
 "use client";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ShieldCheck, User, Wifi, WifiOff } from "lucide-react";
+import { ShieldCheck, User, WifiOff, RefreshCw, Loader2, TrendingUp, Coins } from "lucide-react";
 import { WiseIcon } from "@/components/icons/wise-icon";
+import { toast } from "sonner";
 
 interface SettingsFormProps {
   user: {
@@ -25,6 +23,8 @@ interface SettingsFormProps {
   } | null;
   lastSyncStatus: string | null;
   wiseConfigured: boolean;
+  indexaConfigured: boolean;
+  alphaVantageConfigured: boolean;
 }
 
 export function SettingsForm({
@@ -32,7 +32,36 @@ export function SettingsForm({
   appSettings,
   lastSyncStatus,
   wiseConfigured,
+  indexaConfigured,
+  alphaVantageConfigured,
 }: SettingsFormProps) {
+  const router = useRouter();
+  const [isFullSyncing, setIsFullSyncing] = useState(false);
+
+  async function handleFullSync() {
+    setIsFullSyncing(true);
+    try {
+      const response = await fetch("/api/sync?mode=full", {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Full sync failed");
+      }
+
+      toast.success("Full sync completed", {
+        description: data.summary,
+      });
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Full sync failed");
+    } finally {
+      setIsFullSyncing(false);
+    }
+  }
+
   return (
     <div className="grid gap-6">
       {/* Account Settings */}
@@ -105,11 +134,7 @@ export function SettingsForm({
               {lastSyncStatus && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Last Sync Status</span>
-                  <Badge
-                    variant={
-                      lastSyncStatus === "SUCCESS" ? "default" : "destructive"
-                    }
-                  >
+                  <Badge variant={lastSyncStatus === "SUCCESS" ? "default" : "destructive"}>
                     {lastSyncStatus}
                   </Badge>
                 </div>
@@ -119,10 +144,128 @@ export function SettingsForm({
 
           {!wiseConfigured && (
             <p className="text-sm text-muted-foreground">
-              To connect Wise, add your API token to the WISE_API_TOKEN
-              environment variable.
+              To connect Wise, add your API token to the WISE_API_TOKEN environment variable.
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Indexa Capital Integration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <TrendingUp
+              className={`h-5 w-5 ${indexaConfigured ? "text-blue-500" : "text-muted-foreground"}`}
+            />
+            <CardTitle>Indexa Capital Integration</CardTitle>
+          </div>
+          <CardDescription>Connect to your Indexa Capital investment portfolio</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm">API Status</span>
+            <Badge variant={indexaConfigured ? "default" : "destructive"}>
+              {indexaConfigured ? "Connected" : "Not Configured"}
+            </Badge>
+          </div>
+
+          {!indexaConfigured && (
+            <p className="text-sm text-muted-foreground">
+              To connect Indexa Capital, add your credentials to the environment variables:
+              INDEXA_API_TOKEN or INDEXA_USERNAME, INDEXA_PASSWORD, and INDEXA_DOCUMENT.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Alpha Vantage Integration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Coins
+              className={`h-5 w-5 ${alphaVantageConfigured ? "text-gold" : "text-muted-foreground"}`}
+            />
+            <CardTitle>Alpha Vantage Integration</CardTitle>
+          </div>
+          <CardDescription>Get real-time stock and crypto prices</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm">API Status</span>
+            <Badge variant={alphaVantageConfigured ? "default" : "destructive"}>
+              {alphaVantageConfigured ? "Connected" : "Not Configured"}
+            </Badge>
+          </div>
+
+          {!alphaVantageConfigured && (
+            <p className="text-sm text-muted-foreground">
+              To enable stock and crypto price updates, add your API key to the
+              ALPHA_VANTAGE_API_KEY environment variable. Get a free API key at{" "}
+              <a
+                href="https://www.alphavantage.co/support/#api-key"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                alphavantage.co
+              </a>
+              .
+            </p>
+          )}
+
+          {alphaVantageConfigured && (
+            <p className="text-sm text-muted-foreground">
+              Prices for your stocks and crypto assets will be updated automatically during sync.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Data Sync */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <RefreshCw className="h-5 w-5" />
+            <CardTitle>Data Sync</CardTitle>
+          </div>
+          <CardDescription>Sync all your financial data from connected services</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Full Sync</p>
+              <p className="text-xs text-muted-foreground">
+                Re-sync all historical data (may take a few minutes)
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleFullSync}
+              disabled={
+                isFullSyncing || (!wiseConfigured && !indexaConfigured && !alphaVantageConfigured)
+              }
+            >
+              {isFullSyncing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Run Full Sync
+                </>
+              )}
+            </Button>
+          </div>
+
+          <Separator />
+
+          <p className="text-xs text-muted-foreground">
+            Light sync happens automatically on every page load. Use full sync to re-fetch all
+            historical data if something is missing.
+          </p>
         </CardContent>
       </Card>
 
@@ -135,9 +278,7 @@ export function SettingsForm({
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-sm">Primary Currency</span>
-            <Badge variant="outline">
-              {appSettings?.primaryCurrency || "EUR"}
-            </Badge>
+            <Badge variant="outline">{appSettings?.primaryCurrency || "EUR"}</Badge>
           </div>
         </CardContent>
       </Card>

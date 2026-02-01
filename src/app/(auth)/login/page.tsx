@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
@@ -16,14 +16,10 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Loader2 } from "lucide-react";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
@@ -50,16 +46,10 @@ export default function LoginPage() {
 
       if (result?.error) {
         // NextAuth v5 uses error codes from CredentialsSignin subclasses
-        if (
-          result.error === "2FA_REQUIRED" ||
-          result.code === "2FA_REQUIRED"
-        ) {
+        if (result.error === "2FA_REQUIRED" || result.code === "2FA_REQUIRED") {
           setRequires2FA(true);
           toast.info("Enter your 2FA code to continue");
-        } else if (
-          result.error === "CredentialsSignin" ||
-          result.code === "invalid_credentials"
-        ) {
+        } else if (result.error === "CredentialsSignin" || result.code === "invalid_credentials") {
           toast.error("Invalid email or password");
         } else if (result.code === "invalid_2fa_code") {
           toast.error("Invalid 2FA code");
@@ -178,5 +168,37 @@ export default function LoginPage() {
         </CardFooter>
       </form>
     </Card>
+  );
+}
+
+function LoginFormSkeleton() {
+  return (
+    <Card>
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-2xl">Sign in</CardTitle>
+        <CardDescription>Enter your email and password to sign in</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <div className="h-4 w-12 bg-muted rounded animate-pulse" />
+          <div className="h-10 bg-muted rounded animate-pulse" />
+        </div>
+        <div className="space-y-2">
+          <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+          <div className="h-10 bg-muted rounded animate-pulse" />
+        </div>
+      </CardContent>
+      <CardFooter className="flex flex-col gap-4">
+        <div className="h-10 w-full bg-muted rounded animate-pulse" />
+      </CardFooter>
+    </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFormSkeleton />}>
+      <LoginForm />
+    </Suspense>
   );
 }

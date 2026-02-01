@@ -9,14 +9,14 @@ const globalForPrisma = globalThis as unknown as {
 
 function createPrismaClient(): PrismaClient {
   const connectionString = process.env.DATABASE_URL;
-  
+
   if (!connectionString) {
     throw new Error("DATABASE_URL environment variable is not set");
   }
 
   const pool = globalForPrisma.pool ?? new Pool({ connectionString });
   const adapter = new PrismaPg(pool);
-  
+
   if (process.env.NODE_ENV !== "production") {
     globalForPrisma.pool = pool;
   }
@@ -25,7 +25,7 @@ function createPrismaClient(): PrismaClient {
     adapter,
     log:
       process.env.NODE_ENV === "development"
-        ? ["query", "error", "warn"]
+        ? ["info", "error", "warn"]
         : ["error"],
   });
 }

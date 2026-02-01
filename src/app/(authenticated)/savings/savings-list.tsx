@@ -4,13 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -33,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Loader2, Trash2, Check, Target } from "lucide-react";
+import { usePrivateMode } from "@/components/providers/private-mode-provider";
 
 interface SavingsGoal {
   id: string;
@@ -59,6 +54,7 @@ const goalTypeLabels: Record<string, string> = {
 
 export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
   const router = useRouter();
+  const { isPrivate } = usePrivateMode();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -106,9 +102,7 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
       setDeadline("");
       router.refresh();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to create goal"
-      );
+      toast.error(error instanceof Error ? error.message : "Failed to create goal");
     } finally {
       setIsLoading(false);
     }
@@ -129,9 +123,7 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
       toast.success("Savings goal deleted");
       router.refresh();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to delete goal"
-      );
+      toast.error(error instanceof Error ? error.message : "Failed to delete goal");
     } finally {
       setDeletingId(null);
     }
@@ -154,9 +146,7 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
       toast.success("Goal marked as complete!");
       router.refresh();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update goal"
-      );
+      toast.error(error instanceof Error ? error.message : "Failed to update goal");
     } finally {
       setUpdatingId(null);
     }
@@ -178,9 +168,7 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create Savings Goal</DialogTitle>
-            <DialogDescription>
-              Set a target to track your savings progress
-            </DialogDescription>
+            <DialogDescription>Set a target to track your savings progress</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -269,8 +257,7 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
             <div className="text-center">
               <Target className="mx-auto h-12 w-12 text-muted-foreground/50" />
               <p className="mt-4 text-muted-foreground">
-                No savings goals yet. Create one to start tracking your
-                progress.
+                No savings goals yet. Create one to start tracking your progress.
               </p>
             </div>
           </CardContent>
@@ -280,10 +267,7 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
           {activeGoals.length > 0 && (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {activeGoals.map((goal) => {
-                const percentage = Math.min(
-                  100,
-                  (goal.currentAmount / goal.targetAmount) * 100
-                );
+                const percentage = Math.min(100, (goal.currentAmount / goal.targetAmount) * 100);
                 const isComplete = goal.currentAmount >= goal.targetAmount;
 
                 return (
@@ -323,9 +307,7 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
                         </div>
                       </div>
                       <CardDescription className="flex items-center gap-2">
-                        <Badge variant="secondary">
-                          {goalTypeLabels[goal.type] || goal.type}
-                        </Badge>
+                        <Badge variant="secondary">{goalTypeLabels[goal.type] || goal.type}</Badge>
                         {goal.deadline && (
                           <span className="text-xs">
                             Due {format(new Date(goal.deadline), "MMM yyyy")}
@@ -337,25 +319,29 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span className="font-medium">
-                            {goal.currentAmount.toLocaleString("de-DE", {
-                              style: "currency",
-                              currency: "EUR",
-                            })}
+                            {isPrivate
+                              ? "••••"
+                              : goal.currentAmount.toLocaleString("de-DE", {
+                                  style: "currency",
+                                  currency: "EUR",
+                                })}
                           </span>
                           <span className="text-muted-foreground">
                             of{" "}
-                            {goal.targetAmount.toLocaleString("de-DE", {
-                              style: "currency",
-                              currency: "EUR",
-                            })}
+                            {isPrivate
+                              ? "••••"
+                              : goal.targetAmount.toLocaleString("de-DE", {
+                                  style: "currency",
+                                  currency: "EUR",
+                                })}
                           </span>
                         </div>
                         <Progress
-                          value={percentage}
+                          value={isPrivate ? 0 : percentage}
                           className={isComplete ? "[&>div]:bg-green-600" : ""}
                         />
                         <p className="text-xs text-muted-foreground text-right">
-                          {percentage.toFixed(0)}% complete
+                          {isPrivate ? "••••" : `${percentage.toFixed(0)}% complete`}
                         </p>
                       </div>
                     </CardContent>
@@ -368,9 +354,7 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
           {/* Completed Goals */}
           {completedGoals.length > 0 && (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-muted-foreground">
-                Completed Goals
-              </h2>
+              <h2 className="text-lg font-semibold text-muted-foreground">Completed Goals</h2>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {completedGoals.map((goal) => (
                   <Card key={goal.id} className="opacity-75">
@@ -398,10 +382,12 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
                     <CardContent>
                       <p className="text-sm text-muted-foreground">
                         Saved{" "}
-                        {goal.targetAmount.toLocaleString("de-DE", {
-                          style: "currency",
-                          currency: "EUR",
-                        })}
+                        {isPrivate
+                          ? "••••"
+                          : goal.targetAmount.toLocaleString("de-DE", {
+                              style: "currency",
+                              currency: "EUR",
+                            })}
                       </p>
                     </CardContent>
                   </Card>

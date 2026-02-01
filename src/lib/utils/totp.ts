@@ -1,9 +1,4 @@
-import {
-  generateSecret as otpGenerateSecret,
-  generateSync,
-  verifySync,
-  generateURI,
-} from "otplib";
+import { generateSecret as otpGenerateSecret, verifySync, generateURI } from "otplib";
 import QRCode from "qrcode";
 import { encrypt, decrypt } from "./encryption";
 
@@ -19,10 +14,7 @@ export function generateTotpSecret(): string {
 /**
  * Generate a QR code data URL for 2FA setup
  */
-export async function generateQrCodeDataUrl(
-  email: string,
-  secret: string
-): Promise<string> {
+export async function generateQrCodeDataUrl(email: string, secret: string): Promise<string> {
   const otpauth = generateURI({
     secret,
     issuer: APP_NAME,
@@ -40,21 +32,11 @@ export function verifyTotp(token: string, secret: string): boolean {
 
   // Validate token length
   if (sanitizedToken.length !== 6) {
-    console.error(
-      `TOTP validation failed: expected 6 digits, got ${sanitizedToken.length}`
-    );
     return false;
   }
 
   const result = verifySync({ token: sanitizedToken, secret });
   return result.valid;
-}
-
-/**
- * Generate current TOTP token (for testing)
- */
-export function generateTotp(secret: string): string {
-  return generateSync({ secret });
 }
 
 /**

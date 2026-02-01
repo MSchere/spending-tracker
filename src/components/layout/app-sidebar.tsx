@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -12,6 +11,10 @@ import {
   Settings,
   LogOut,
   Loader2,
+  TrendingUp,
+  RefreshCw,
+  Package,
+  Coins,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { toast } from "sonner";
@@ -28,7 +31,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { WiseIcon } from "@/components/icons/wise-icon";
+import { useSync } from "@/components/providers";
 
 const navigation = [
   {
@@ -36,6 +39,14 @@ const navigation = [
     items: [
       { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { name: "Transactions", href: "/transactions", icon: Receipt },
+    ],
+  },
+  {
+    title: "Assets",
+    items: [
+      { name: "Investments", href: "/investments", icon: TrendingUp },
+      { name: "Stocks & Crypto", href: "/financial-assets", icon: Coins },
+      { name: "Tangible Assets", href: "/assets", icon: Package },
     ],
   },
   {
@@ -55,34 +66,15 @@ const navigation = [
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [isSyncing, setIsSyncing] = useState(false);
+  const { isSyncing, triggerSync } = useSync();
 
   async function handleSync() {
-    setIsSyncing(true);
-
     try {
-      const response = await fetch("/api/sync", {
-        method: "POST",
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Sync failed");
-      }
-
-      toast.success(
-        `Synced ${data.transactionsAdded} new transactions from ${data.profilesSynced} profile(s)`
-      );
-
-      // Refresh the current page to show new data
+      await triggerSync("light");
+      toast.success("Sync completed");
       router.refresh();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to sync with Wise"
-      );
-    } finally {
-      setIsSyncing(false);
+      toast.error(error instanceof Error ? error.message : "Failed to sync");
     }
   }
 
@@ -96,10 +88,7 @@ export function AppSidebar() {
               <SidebarMenu>
                 {group.items.map((item) => (
                   <SidebarMenuItem key={item.name}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === item.href}
-                    >
+                    <SidebarMenuButton asChild isActive={pathname === item.href}>
                       <Link href={item.href}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.name}</span>
@@ -117,16 +106,16 @@ export function AppSidebar() {
         <div className="flex flex-col gap-2">
           <Button
             size="sm"
-            className="w-full justify-start gap-4 bg-[#9FE870] hover:bg-[#8BD85F] text-black"
+            className="w-full justify-start gap-4 bg-gold hover:bg-gold/90 text-black"
             onClick={handleSync}
             disabled={isSyncing}
           >
             {isSyncing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <WiseIcon className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4" />
             )}
-            {isSyncing ? "Syncing..." : "Sync with Wise"}
+            {isSyncing ? "Syncing..." : "Sync Data"}
           </Button>
           <Separator />
           <Button

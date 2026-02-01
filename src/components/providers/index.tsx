@@ -2,6 +2,7 @@
 
 import { ThemeProvider } from "./theme-provider";
 import { AuthProvider } from "./auth-provider";
+import { SyncProvider } from "./sync-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 interface ProvidersProps {
@@ -10,16 +11,15 @@ interface ProvidersProps {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-    >
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <AuthProvider>
-        {children}
-        <Toaster richColors position="top-right" />
+        <SyncProvider>
+          {children}
+          <Toaster richColors position="top-right" />
+        </SyncProvider>
       </AuthProvider>
     </ThemeProvider>
   );
 }
+
+export { useSync } from "./sync-provider";
