@@ -191,7 +191,7 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Recurring Income</CardTitle>
+            <CardTitle className="text-sm font-medium">Average Monthly Recurring Income</CardTitle>
             <ArrowDownIcon className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
@@ -204,7 +204,7 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Recurring Expenses</CardTitle>
+            <CardTitle className="text-sm font-medium">Average Monthly Recurring Expenses</CardTitle>
             <ArrowUpIcon className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>

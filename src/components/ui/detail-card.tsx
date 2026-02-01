@@ -6,7 +6,7 @@ interface DetailCardProps {
   title: string;
   description?: string;
   icon?: LucideIcon;
-  href: string;
+  href?: string;
   children: React.ReactNode;
 }
 
@@ -22,9 +22,11 @@ export function DetailCard({ title, description, icon: Icon, href, children }: D
       </CardHeader>
       <CardContent className="flex flex-col flex-1">
         <div className="flex-1">{children}</div>
-        <Link href={href} className="text-sm text-primary hover:underline block mt-4">
-          View details →
-        </Link>
+        {href && (
+          <Link href={href} className="text-sm text-primary hover:underline block mt-4">
+            View details →
+          </Link>
+        )}
       </CardContent>
     </Card>
   );

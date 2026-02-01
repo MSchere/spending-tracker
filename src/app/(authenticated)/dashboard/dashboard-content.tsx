@@ -8,8 +8,8 @@ import {
   type CashFlowData,
   type CategorySpendingData,
 } from "@/components/charts";
-import { usePrivateMode } from "@/components/providers/private-mode-provider";
 import { usePreferences } from "@/components/providers/preferences-provider";
+import { usePrivateMode } from "@/components/providers/private-mode-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailCard } from "@/components/ui/detail-card";
 import { SummaryCard } from "@/components/ui/summary-card";
@@ -22,10 +22,8 @@ import {
   LineChart,
   Package,
   PiggyBank,
-  Calculator,
   Target,
   TrendingUp,
-  Wallet,
 } from "lucide-react";
 
 interface DashboardStats {
@@ -35,8 +33,12 @@ interface DashboardStats {
   totalBalance: number;
   budgetsCount: number;
   totalMonthlyBudget: number;
-  monthlyRecurringExpenses: number;
-  monthlyRecurringIncome: number;
+  // This month's actual recurring (based on nextDueDate)
+  thisMonthRecurringExpenses: number;
+  thisMonthRecurringIncome: number;
+  // Monthly averages (for reference)
+  avgMonthlyRecurringExpenses: number;
+  avgMonthlyRecurringIncome: number;
   savingsGoals: {
     count: number;
     target: number;
@@ -175,58 +177,144 @@ export function DashboardContent({
         />
       </div>
 
-      {/* Monthly Outlook Card */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Calculator className="h-5 w-5" />
-              Monthly Outlook
-            </CardTitle>
+        <CardHeader>
+          <div className="flex flex-col gap-2">
+            <CardTitle className="flex items-center gap-2">{monthName} Outlook</CardTitle>
             <CardDescription>
-              Estimated monthly cash flow based on recurring items and budgets
+              Expected cash flow this month based on recurring items and budgets
             </CardDescription>
           </div>
-          {(() => {
-            const estimatedCashFlow =
-              stats.monthlyRecurringIncome -
-              stats.monthlyRecurringExpenses -
-              stats.totalMonthlyBudget;
-            return (
-              <div
-                className={`text-2xl font-bold ${estimatedCashFlow >= 0 ? "text-green-600" : "text-red-600"}`}
-              >
-                <PrivateValue>
-                  {estimatedCashFlow >= 0 ? "+" : ""}
-                  {formatCurrency(estimatedCashFlow)}
-                </PrivateValue>
-              </div>
-            );
-          })()}
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-4">
             <div className="flex flex-col gap-1 p-3 rounded-lg bg-green-50 dark:bg-green-950/30">
               <span className="text-xs text-muted-foreground">Expected Income</span>
               <span className="text-lg font-semibold text-green-600">
-                <PrivateValue>+{formatCurrency(stats.monthlyRecurringIncome)}</PrivateValue>
+                <PrivateValue>+{formatCurrency(stats.thisMonthRecurringIncome)}</PrivateValue>
               </span>
-              <span className="text-xs text-muted-foreground">Salary, recurring income</span>
-            </div>
-            <div className="flex flex-col gap-1 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30">
-              <span className="text-xs text-muted-foreground">Fixed Expenses</span>
-              <span className="text-lg font-semibold text-orange-600">
-                <PrivateValue>-{formatCurrency(stats.monthlyRecurringExpenses)}</PrivateValue>
+              <span className="text-xs text-muted-foreground">
+                Avg: {formatCurrency(stats.avgMonthlyRecurringIncome)}/mo
               </span>
-              <span className="text-xs text-muted-foreground">Subscriptions, bills</span>
             </div>
-            <div className="flex flex-col gap-1 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30">
-              <span className="text-xs text-muted-foreground">Variable Budget</span>
-              <span className="text-lg font-semibold text-blue-600">
-                <PrivateValue>-{formatCurrency(stats.totalMonthlyBudget)}</PrivateValue>
-              </span>
-              <span className="text-xs text-muted-foreground">Planned spending</span>
-            </div>
+
+            {(() => {
+              const income = stats.thisMonthRecurringIncome;
+              const fixedExpenses = stats.thisMonthRecurringExpenses;
+              const fixedPercent = income > 0 ? (fixedExpenses / income) * 100 : 0;
+              const targetPercent = 50;
+              const deviation = fixedPercent - targetPercent;
+              const isOverBudget = deviation > 0;
+
+              return (
+                <div className="flex flex-col gap-1 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Fixed Expenses</span>
+                    <span
+                      className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
+                    >
+                      {fixedPercent.toFixed(0)}% / {targetPercent}%
+                    </span>
+                  </div>
+                  <span className="text-lg font-semibold text-orange-600">
+                    <PrivateValue>-{formatCurrency(fixedExpenses)}</PrivateValue>
+                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Avg: {formatCurrency(stats.avgMonthlyRecurringExpenses)}/mo
+                    </span>
+                    {income > 0 && (
+                      <span
+                        className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
+                      >
+                        {isOverBudget ? "+" : ""}
+                        {deviation.toFixed(0)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {(() => {
+              const income = stats.thisMonthRecurringIncome;
+              const variableBudget = stats.totalMonthlyBudget;
+              const variablePercent = income > 0 ? (variableBudget / income) * 100 : 0;
+              const targetPercent = 30;
+              const deviation = variablePercent - targetPercent;
+              const isOverBudget = deviation > 0;
+
+              return (
+                <div className="flex flex-col gap-1 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Variable Budget</span>
+                    <span
+                      className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
+                    >
+                      {variablePercent.toFixed(0)}% / {targetPercent}%
+                    </span>
+                  </div>
+                  <span className="text-lg font-semibold text-blue-600">
+                    <PrivateValue>-{formatCurrency(variableBudget)}</PrivateValue>
+                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Planned spending</span>
+                    {income > 0 && (
+                      <span
+                        className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
+                      >
+                        {isOverBudget ? "+" : ""}
+                        {deviation.toFixed(0)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+            {(() => {
+              const income = stats.thisMonthRecurringIncome;
+              const fixedExpenses = stats.thisMonthRecurringExpenses;
+              const variableBudget = stats.totalMonthlyBudget;
+              const savings = income - fixedExpenses - variableBudget;
+              const savingsPercent = income > 0 ? (savings / income) * 100 : 0;
+              const targetPercent = 20;
+              const deviation = savingsPercent - targetPercent;
+              const isOnTrack = deviation >= 0;
+
+              return (
+                <div className="flex flex-col gap-1 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Savings & Investments</span>
+                    {income > 0 && (
+                      <span
+                        className={`text-xs font-medium ${isOnTrack ? "text-green-600" : "text-red-600"}`}
+                      >
+                        {savingsPercent.toFixed(0)}% / {targetPercent}%
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className={`text-lg font-semibold ${savings >= 0 ? "text-purple-600" : "text-red-600"}`}
+                  >
+                    <PrivateValue>
+                      {savings >= 0 ? "+" : ""}
+                      {formatCurrency(savings)}
+                    </PrivateValue>
+                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Available to save</span>
+                    {income > 0 && (
+                      <span
+                        className={`text-xs font-medium ${isOnTrack ? "text-green-600" : "text-red-600"}`}
+                      >
+                        {isOnTrack ? "+" : ""}
+                        {deviation.toFixed(0)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </CardContent>
       </Card>
@@ -250,26 +338,7 @@ export function DashboardContent({
 
         <Card>
           <CardHeader>
-            <CardTitle>Spending by Category</CardTitle>
-            <CardDescription>{monthName} breakdown</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isPrivate ? (
-              <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                Chart hidden in private mode
-              </div>
-            ) : (
-              <CategorySpendingChart data={categoryData} />
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
             <div className="flex items-center gap-2">
-              <Wallet className="h-5 w-5" />
               <CardTitle>Net Worth Breakdown</CardTitle>
             </div>
             <CardDescription>Assets by category</CardDescription>
@@ -327,6 +396,24 @@ export function DashboardContent({
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Spending by Category</CardTitle>
+            <CardDescription>{monthName} breakdown</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isPrivate ? (
+              <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+                Chart hidden in private mode
+              </div>
+            ) : (
+              <CategorySpendingChart data={categoryData} />
+            )}
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>Budget Progress</CardTitle>
@@ -347,7 +434,7 @@ export function DashboardContent({
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {investmentSummary && (
           <DetailCard
-            title="Indexa Capital"
+            title="Investment Funds"
             description="Long-term investments"
             icon={LineChart}
             href="/investments"
@@ -499,7 +586,6 @@ export function DashboardContent({
           title="Upcoming Expenses"
           description="Next recurring payments due"
           icon={CalendarClock}
-          href="/recurring"
         >
           {stats.upcomingRecurring.length === 0 ? (
             <p className="text-sm text-muted-foreground">

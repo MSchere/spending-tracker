@@ -190,13 +190,37 @@ function calculateDashboardStats(data: Awaited<ReturnType<typeof getAllDashboard
     }
   };
 
-  const monthlyRecurringExpenses = recurringExpenses
+  // Monthly AVERAGES (for reference/comparison)
+  const avgMonthlyRecurringExpenses = recurringExpenses
     .filter((r) => r.type === "EXPENSE")
     .reduce((sum, r) => sum + calculateMonthlyAmount(r.amount.toNumber(), r.frequency), 0);
 
-  const monthlyRecurringIncome = recurringExpenses
+  const avgMonthlyRecurringIncome = recurringExpenses
     .filter((r) => r.type === "INCOME")
     .reduce((sum, r) => sum + calculateMonthlyAmount(r.amount.toNumber(), r.frequency), 0);
+
+  // Calculate ACTUAL recurring items due THIS month (based on nextDueDate)
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+  const thisMonthRecurringExpenses = recurringExpenses
+    .filter(
+      (r) =>
+        r.type === "EXPENSE" &&
+        r.nextDueDate >= currentMonthStart &&
+        r.nextDueDate <= currentMonthEnd
+    )
+    .reduce((sum, r) => sum + r.amount.toNumber(), 0);
+
+  const thisMonthRecurringIncome = recurringExpenses
+    .filter(
+      (r) =>
+        r.type === "INCOME" &&
+        r.nextDueDate >= currentMonthStart &&
+        r.nextDueDate <= currentMonthEnd
+    )
+    .reduce((sum, r) => sum + r.amount.toNumber(), 0);
 
   // Calculate total monthly budget (normalize all budgets to monthly)
   const totalMonthlyBudget = budgets.reduce((sum, b) => {
@@ -244,8 +268,12 @@ function calculateDashboardStats(data: Awaited<ReturnType<typeof getAllDashboard
     },
     recentTransactions,
     upcomingRecurring,
-    monthlyRecurringExpenses,
-    monthlyRecurringIncome,
+    // This month's actual recurring (based on nextDueDate)
+    thisMonthRecurringExpenses,
+    thisMonthRecurringIncome,
+    // Monthly averages (for reference)
+    avgMonthlyRecurringExpenses,
+    avgMonthlyRecurringIncome,
   };
 }
 
