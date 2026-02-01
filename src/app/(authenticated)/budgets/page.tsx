@@ -60,6 +60,28 @@ async function getBudgetsData(userId: string) {
     })
   );
 
+  // Calculate total monthly budget (normalize all budgets to monthly)
+  const totalMonthlyBudget = budgets
+    .filter((b) => b.isActive)
+    .reduce((sum, b) => {
+      const amount = b.amount.toNumber();
+      switch (b.period) {
+        case "WEEKLY":
+          return sum + amount * 4.33;
+        case "MONTHLY":
+          return sum + amount;
+        case "YEARLY":
+          return sum + amount / 12;
+        default:
+          return sum + amount;
+      }
+    }, 0);
+
+  // Calculate total spent this month across all active budgets
+  const totalSpent = budgetsWithSpending
+    .filter((b) => b.isActive)
+    .reduce((sum, b) => sum + b.spent, 0);
+
   // Get all categories for creating new budgets
   const categories = await db.category.findMany({
     where: {
@@ -75,6 +97,8 @@ async function getBudgetsData(userId: string) {
       name: c.name,
       color: c.color,
     })),
+    totalMonthlyBudget,
+    totalSpent,
   };
 }
 
@@ -85,18 +109,23 @@ export default async function BudgetsPage() {
     return null;
   }
 
-  const { budgets, categories } = await getBudgetsData(session.user.id);
+  const { budgets, categories, totalMonthlyBudget, totalSpent } = await getBudgetsData(
+    session.user.id
+  );
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Budgets</h1>
-        <p className="text-muted-foreground">
-          Set spending limits for your categories
-        </p>
+        <p className="text-muted-foreground">Set spending limits for your categories</p>
       </div>
 
-      <BudgetsList budgets={budgets} categories={categories} />
+      <BudgetsList
+        budgets={budgets}
+        categories={categories}
+        totalMonthlyBudget={totalMonthlyBudget}
+        totalSpent={totalSpent}
+      />
     </div>
   );
 }

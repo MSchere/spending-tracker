@@ -58,9 +58,16 @@ interface Category {
 interface BudgetsListProps {
   budgets: Budget[];
   categories: Category[];
+  totalMonthlyBudget: number;
+  totalSpent: number;
 }
 
-export function BudgetsList({ budgets, categories }: BudgetsListProps) {
+export function BudgetsList({
+  budgets,
+  categories,
+  totalMonthlyBudget,
+  totalSpent,
+}: BudgetsListProps) {
   const router = useRouter();
   const { formatCurrency } = usePreferences();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -135,8 +142,56 @@ export function BudgetsList({ budgets, categories }: BudgetsListProps) {
     (cat) => !budgets.some((b) => b.categoryId === cat.id)
   );
 
+  const spentPercentage = totalMonthlyBudget > 0 ? (totalSpent / totalMonthlyBudget) * 100 : 0;
+  const isOverBudget = totalSpent > totalMonthlyBudget;
+  const activeBudgetsCount = budgets.filter((b) => b.isActive).length;
+
   return (
     <>
+      {/* Summary Card */}
+      {budgets.length > 0 && (
+        <Card className="mb-4">
+          <CardContent className="pt-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">
+                  Total Monthly Budget ({activeBudgetsCount} active)
+                </p>
+                <p className="text-2xl font-bold">
+                  <PrivateValue>{formatCurrency(totalMonthlyBudget)}</PrivateValue>
+                </p>
+              </div>
+              <div className="space-y-1 md:text-right">
+                <p className="text-sm text-muted-foreground">Spent This Month</p>
+                <p className={`text-2xl font-bold ${isOverBudget ? "text-red-600" : ""}`}>
+                  <PrivateValue>{formatCurrency(totalSpent)}</PrivateValue>
+                </p>
+              </div>
+              <div className="space-y-1 md:text-right">
+                <p className="text-sm text-muted-foreground">Remaining</p>
+                <p
+                  className={`text-2xl font-bold ${isOverBudget ? "text-red-600" : "text-green-600"}`}
+                >
+                  <PrivateValue>
+                    {isOverBudget ? "-" : ""}
+                    {formatCurrency(Math.abs(totalMonthlyBudget - totalSpent))}
+                  </PrivateValue>
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              <Progress
+                value={Math.min(100, spentPercentage)}
+                className={isOverBudget ? "[&>div]:bg-red-600" : ""}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                <PrivateValue>{spentPercentage.toFixed(0)}% of budget used</PrivateValue>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogTrigger asChild>
           <Button>

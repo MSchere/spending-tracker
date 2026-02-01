@@ -194,7 +194,9 @@ export function DashboardContent({
                 <PrivateValue>+{formatCurrency(stats.thisMonthRecurringIncome)}</PrivateValue>
               </span>
               <span className="text-xs text-muted-foreground">
-                Avg: {formatCurrency(stats.avgMonthlyRecurringIncome)}/mo
+                <PrivateValue>
+                  Avg: {formatCurrency(stats.avgMonthlyRecurringIncome)}/mo
+                </PrivateValue>
               </span>
             </div>
 
@@ -210,26 +212,32 @@ export function DashboardContent({
                 <div className="flex flex-col gap-1 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Fixed Expenses</span>
-                    <span
-                      className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
-                    >
-                      {fixedPercent.toFixed(0)}% / {targetPercent}%
-                    </span>
+                    <PrivateValue>
+                      <span
+                        className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
+                      >
+                        {fixedPercent.toFixed(0)}% / {targetPercent}%
+                      </span>
+                    </PrivateValue>
                   </div>
                   <span className="text-lg font-semibold text-orange-600">
                     <PrivateValue>-{formatCurrency(fixedExpenses)}</PrivateValue>
                   </span>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      Avg: {formatCurrency(stats.avgMonthlyRecurringExpenses)}/mo
+                      <PrivateValue>
+                        Avg: {formatCurrency(stats.avgMonthlyRecurringExpenses)}/mo
+                      </PrivateValue>
                     </span>
                     {income > 0 && (
-                      <span
-                        className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
-                      >
-                        {isOverBudget ? "+" : ""}
-                        {deviation.toFixed(0)}%
-                      </span>
+                      <PrivateValue>
+                        <span
+                          className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
+                        >
+                          {isOverBudget ? "+" : ""}
+                          {deviation.toFixed(0)}%
+                        </span>
+                      </PrivateValue>
                     )}
                   </div>
                 </div>
@@ -248,11 +256,13 @@ export function DashboardContent({
                 <div className="flex flex-col gap-1 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Variable Budget</span>
-                    <span
-                      className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
-                    >
-                      {variablePercent.toFixed(0)}% / {targetPercent}%
-                    </span>
+                    <PrivateValue>
+                      <span
+                        className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
+                      >
+                        {variablePercent.toFixed(0)}% / {targetPercent}%
+                      </span>
+                    </PrivateValue>
                   </div>
                   <span className="text-lg font-semibold text-blue-600">
                     <PrivateValue>-{formatCurrency(variableBudget)}</PrivateValue>
@@ -260,12 +270,14 @@ export function DashboardContent({
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Planned spending</span>
                     {income > 0 && (
-                      <span
-                        className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
-                      >
-                        {isOverBudget ? "+" : ""}
-                        {deviation.toFixed(0)}%
-                      </span>
+                      <PrivateValue>
+                        <span
+                          className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
+                        >
+                          {isOverBudget ? "+" : ""}
+                          {deviation.toFixed(0)}%
+                        </span>
+                      </PrivateValue>
                     )}
                   </div>
                 </div>
@@ -286,11 +298,13 @@ export function DashboardContent({
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Savings & Investments</span>
                     {income > 0 && (
-                      <span
-                        className={`text-xs font-medium ${isOnTrack ? "text-green-600" : "text-red-600"}`}
-                      >
-                        {savingsPercent.toFixed(0)}% / {targetPercent}%
-                      </span>
+                      <PrivateValue>
+                        <span
+                          className={`text-xs font-medium ${isOnTrack ? "text-green-600" : "text-red-600"}`}
+                        >
+                          {savingsPercent.toFixed(0)}% / {targetPercent}%
+                        </span>
+                      </PrivateValue>
                     )}
                   </div>
                   <span
@@ -304,12 +318,14 @@ export function DashboardContent({
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Available to save</span>
                     {income > 0 && (
-                      <span
-                        className={`text-xs font-medium ${isOnTrack ? "text-green-600" : "text-red-600"}`}
-                      >
-                        {isOnTrack ? "+" : ""}
-                        {deviation.toFixed(0)}%
-                      </span>
+                      <PrivateValue>
+                        <span
+                          className={`text-xs font-medium ${isOnTrack ? "text-green-600" : "text-red-600"}`}
+                        >
+                          {isOnTrack ? "+" : ""}
+                          {deviation.toFixed(0)}%
+                        </span>
+                      </PrivateValue>
                     )}
                   </div>
                 </div>
