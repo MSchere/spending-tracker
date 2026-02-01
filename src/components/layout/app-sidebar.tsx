@@ -53,8 +53,8 @@ const navigation = [
     title: "Planning",
     items: [
       { name: "Budgets", href: "/budgets", icon: PiggyBank },
-      { name: "Savings Goals", href: "/savings", icon: Target },
       { name: "Recurring", href: "/recurring", icon: CalendarClock },
+      { name: "Savings Goals", href: "/savings", icon: Target },
     ],
   },
   {

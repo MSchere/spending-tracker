@@ -198,6 +198,21 @@ function calculateDashboardStats(data: Awaited<ReturnType<typeof getAllDashboard
     .filter((r) => r.type === "INCOME")
     .reduce((sum, r) => sum + calculateMonthlyAmount(r.amount.toNumber(), r.frequency), 0);
 
+  // Calculate total monthly budget (normalize all budgets to monthly)
+  const totalMonthlyBudget = budgets.reduce((sum, b) => {
+    const amount = b.amount.toNumber();
+    switch (b.period) {
+      case "WEEKLY":
+        return sum + amount * 4.33;
+      case "MONTHLY":
+        return sum + amount;
+      case "YEARLY":
+        return sum + amount / 12;
+      default:
+        return sum + amount;
+    }
+  }, 0);
+
   // Serialize upcoming recurring items for client component (only first 5)
   const upcomingRecurring = recurringExpenses.slice(0, 5).map((r) => ({
     id: r.id,
@@ -221,6 +236,7 @@ function calculateDashboardStats(data: Awaited<ReturnType<typeof getAllDashboard
     netFlow: income - expenses,
     totalBalance,
     budgetsCount: budgets.length,
+    totalMonthlyBudget,
     savingsGoals: {
       count: savingsGoals.length,
       target: totalSavingsTarget,

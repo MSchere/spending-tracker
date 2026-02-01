@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { usePreferences } from "@/components/providers/preferences-provider";
+import { usePrivateMode } from "@/components/providers/private-mode-provider";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -21,9 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -32,10 +32,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Combobox } from "@/components/ui/combobox";
-import { Plus, Loader2, Trash2, CalendarClock, ArrowDownIcon, ArrowUpIcon } from "lucide-react";
-import { usePrivateMode } from "@/components/providers/private-mode-provider";
-import { usePreferences } from "@/components/providers/preferences-provider";
+import { ArrowDownIcon, ArrowUpIcon, CalendarClock, Loader2, Plus, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface RecurringItem {
   id: string;
@@ -191,19 +191,6 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Recurring Expenses</CardTitle>
-            <ArrowUpIcon className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-red-600">
-              {isPrivate ? "••••" : `-${formatCurrency(monthlyExpenseTotal)}`}
-            </p>
-            <p className="text-xs text-muted-foreground">Fixed monthly outgoing</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Monthly Recurring Income</CardTitle>
             <ArrowDownIcon className="h-4 w-4 text-green-500" />
           </CardHeader>
@@ -212,6 +199,19 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
               {isPrivate ? "••••" : `+${formatCurrency(monthlyIncomeTotal)}`}
             </p>
             <p className="text-xs text-muted-foreground">Expected monthly incoming</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Monthly Recurring Expenses</CardTitle>
+            <ArrowUpIcon className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-red-600">
+              {isPrivate ? "••••" : `-${formatCurrency(monthlyExpenseTotal)}`}
+            </p>
+            <p className="text-xs text-muted-foreground">Fixed monthly outgoing</p>
           </CardContent>
         </Card>
       </div>

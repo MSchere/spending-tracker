@@ -22,7 +22,7 @@ import {
   LineChart,
   Package,
   PiggyBank,
-  Repeat,
+  Calculator,
   Target,
   TrendingUp,
   Wallet,
@@ -34,6 +34,7 @@ interface DashboardStats {
   netFlow: number;
   totalBalance: number;
   budgetsCount: number;
+  totalMonthlyBudget: number;
   monthlyRecurringExpenses: number;
   monthlyRecurringIncome: number;
   savingsGoals: {
@@ -134,7 +135,7 @@ export function DashboardContent({
         <p className="text-muted-foreground">Welcome back, {userName}</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <SummaryCard
           title="Net Worth"
           value={<PrivateValue>{formatCurrency(netWorth.total)}</PrivateValue>}
@@ -161,24 +162,6 @@ export function DashboardContent({
         />
 
         <SummaryCard
-          title="Monthly Recurring"
-          value={<PrivateValue>-{formatCurrency(stats.monthlyRecurringExpenses)}</PrivateValue>}
-          description="Fixed expenses"
-          icon={Repeat}
-          iconColor="text-orange-500"
-          valueColor="text-orange-600"
-        />
-
-        <SummaryCard
-          title="Expected Income"
-          value={<PrivateValue>+{formatCurrency(stats.monthlyRecurringIncome)}</PrivateValue>}
-          description="Monthly recurring"
-          icon={Repeat}
-          iconColor="text-green-500"
-          valueColor="text-green-600"
-        />
-
-        <SummaryCard
           title="Net Cash Flow"
           value={
             <PrivateValue>
@@ -191,6 +174,62 @@ export function DashboardContent({
           valueColor={stats.netFlow >= 0 ? "text-green-600" : "text-red-600"}
         />
       </div>
+
+      {/* Monthly Outlook Card */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Calculator className="h-5 w-5" />
+              Monthly Outlook
+            </CardTitle>
+            <CardDescription>
+              Estimated monthly cash flow based on recurring items and budgets
+            </CardDescription>
+          </div>
+          {(() => {
+            const estimatedCashFlow =
+              stats.monthlyRecurringIncome -
+              stats.monthlyRecurringExpenses -
+              stats.totalMonthlyBudget;
+            return (
+              <div
+                className={`text-2xl font-bold ${estimatedCashFlow >= 0 ? "text-green-600" : "text-red-600"}`}
+              >
+                <PrivateValue>
+                  {estimatedCashFlow >= 0 ? "+" : ""}
+                  {formatCurrency(estimatedCashFlow)}
+                </PrivateValue>
+              </div>
+            );
+          })()}
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="flex flex-col gap-1 p-3 rounded-lg bg-green-50 dark:bg-green-950/30">
+              <span className="text-xs text-muted-foreground">Expected Income</span>
+              <span className="text-lg font-semibold text-green-600">
+                <PrivateValue>+{formatCurrency(stats.monthlyRecurringIncome)}</PrivateValue>
+              </span>
+              <span className="text-xs text-muted-foreground">Salary, recurring income</span>
+            </div>
+            <div className="flex flex-col gap-1 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30">
+              <span className="text-xs text-muted-foreground">Fixed Expenses</span>
+              <span className="text-lg font-semibold text-orange-600">
+                <PrivateValue>-{formatCurrency(stats.monthlyRecurringExpenses)}</PrivateValue>
+              </span>
+              <span className="text-xs text-muted-foreground">Subscriptions, bills</span>
+            </div>
+            <div className="flex flex-col gap-1 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30">
+              <span className="text-xs text-muted-foreground">Variable Budget</span>
+              <span className="text-lg font-semibold text-blue-600">
+                <PrivateValue>-{formatCurrency(stats.totalMonthlyBudget)}</PrivateValue>
+              </span>
+              <span className="text-xs text-muted-foreground">Planned spending</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
