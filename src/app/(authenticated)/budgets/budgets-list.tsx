@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -26,7 +26,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Loader2, Trash2 } from "lucide-react";
+import { Plus, Loader2, Trash2, PiggyBank, Receipt } from "lucide-react";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
 import { usePreferences } from "@/components/providers/preferences-provider";
 
@@ -148,48 +148,52 @@ export function BudgetsList({
 
   return (
     <>
-      {/* Summary Card */}
+      {/* Summary Cards - matching recurring page style */}
       {budgets.length > 0 && (
-        <Card className="mb-4">
-          <CardContent className="pt-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">
-                  Total Monthly Budget ({activeBudgetsCount} active)
-                </p>
-                <p className="text-2xl font-bold">
-                  <PrivateValue>{formatCurrency(totalMonthlyBudget)}</PrivateValue>
-                </p>
-              </div>
-              <div className="space-y-1 md:text-right">
-                <p className="text-sm text-muted-foreground">Spent This Month</p>
-                <p className={`text-2xl font-bold ${isOverBudget ? "text-red-600" : ""}`}>
-                  <PrivateValue>{formatCurrency(totalSpent)}</PrivateValue>
-                </p>
-              </div>
-              <div className="space-y-1 md:text-right">
-                <p className="text-sm text-muted-foreground">Remaining</p>
-                <p
-                  className={`text-2xl font-bold ${isOverBudget ? "text-red-600" : "text-green-600"}`}
-                >
+        <div className="grid gap-4 md:grid-cols-2 mb-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Monthly Budget</CardTitle>
+              <PiggyBank className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">
+                <PrivateValue>{formatCurrency(totalMonthlyBudget)}</PrivateValue>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {activeBudgetsCount} active budget{activeBudgetsCount !== 1 ? "s" : ""}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Spent This Month</CardTitle>
+              <Receipt
+                className={`h-4 w-4 ${isOverBudget ? "text-red-500" : "text-muted-foreground"}`}
+              />
+            </CardHeader>
+            <CardContent>
+              <p className={`text-2xl font-bold ${isOverBudget ? "text-red-600" : ""}`}>
+                <PrivateValue>{formatCurrency(totalSpent)}</PrivateValue>
+              </p>
+              <div className="mt-2 space-y-1">
+                <Progress
+                  value={Math.min(100, spentPercentage)}
+                  className={isOverBudget ? "[&>div]:bg-red-600" : ""}
+                />
+                <p className="text-xs text-muted-foreground">
                   <PrivateValue>
-                    {isOverBudget ? "-" : ""}
-                    {formatCurrency(Math.abs(totalMonthlyBudget - totalSpent))}
+                    {spentPercentage.toFixed(0)}% used
+                    {isOverBudget
+                      ? ` (${formatCurrency(totalSpent - totalMonthlyBudget)} over)`
+                      : ` (${formatCurrency(totalMonthlyBudget - totalSpent)} remaining)`}
                   </PrivateValue>
                 </p>
               </div>
-            </div>
-            <div className="mt-4 space-y-2">
-              <Progress
-                value={Math.min(100, spentPercentage)}
-                className={isOverBudget ? "[&>div]:bg-red-600" : ""}
-              />
-              <p className="text-xs text-muted-foreground text-right">
-                <PrivateValue>{spentPercentage.toFixed(0)}% of budget used</PrivateValue>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

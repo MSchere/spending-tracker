@@ -12,6 +12,7 @@ import { usePreferences } from "@/components/providers/preferences-provider";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailCard } from "@/components/ui/detail-card";
+import { OutlookCard } from "@/components/ui/outlook-card";
 import { SummaryCard } from "@/components/ui/summary-card";
 import {
   ArrowDownIcon,
@@ -187,151 +188,56 @@ export function DashboardContent({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="flex flex-col gap-1 p-3 rounded-lg bg-green-50 dark:bg-green-950/30">
-              <span className="text-xs text-muted-foreground">Expected Income</span>
-              <span className="text-lg font-semibold text-green-600">
-                <PrivateValue>+{formatCurrency(stats.thisMonthRecurringIncome)}</PrivateValue>
-              </span>
-              <span className="text-xs text-muted-foreground">
-                <PrivateValue>
-                  Avg: {formatCurrency(stats.avgMonthlyRecurringIncome)}/mo
-                </PrivateValue>
-              </span>
-            </div>
+          {(() => {
+            const income = stats.thisMonthRecurringIncome;
+            const fixedExpenses = stats.thisMonthRecurringExpenses;
+            const variableBudget = stats.totalMonthlyBudget;
+            const savings = income - fixedExpenses - variableBudget;
 
-            {(() => {
-              const income = stats.thisMonthRecurringIncome;
-              const fixedExpenses = stats.thisMonthRecurringExpenses;
-              const fixedPercent = income > 0 ? (fixedExpenses / income) * 100 : 0;
-              const targetPercent = 50;
-              const deviation = fixedPercent - targetPercent;
-              const isOverBudget = deviation > 0;
+            const fixedPercent = income > 0 ? (fixedExpenses / income) * 100 : undefined;
+            const variablePercent = income > 0 ? (variableBudget / income) * 100 : undefined;
+            const savingsPercent = income > 0 ? (savings / income) * 100 : undefined;
 
-              return (
-                <div className="flex flex-col gap-1 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Fixed Expenses</span>
-                    <PrivateValue>
-                      <span
-                        className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
-                      >
-                        {fixedPercent.toFixed(0)}% / {targetPercent}%
-                      </span>
-                    </PrivateValue>
-                  </div>
-                  <span className="text-lg font-semibold text-orange-600">
-                    <PrivateValue>-{formatCurrency(fixedExpenses)}</PrivateValue>
-                  </span>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      <PrivateValue>
-                        Avg: {formatCurrency(stats.avgMonthlyRecurringExpenses)}/mo
-                      </PrivateValue>
-                    </span>
-                    {income > 0 && (
-                      <PrivateValue>
-                        <span
-                          className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
-                        >
-                          {isOverBudget ? "+" : ""}
-                          {deviation.toFixed(0)}%
-                        </span>
-                      </PrivateValue>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {(() => {
-              const income = stats.thisMonthRecurringIncome;
-              const variableBudget = stats.totalMonthlyBudget;
-              const variablePercent = income > 0 ? (variableBudget / income) * 100 : 0;
-              const targetPercent = 30;
-              const deviation = variablePercent - targetPercent;
-              const isOverBudget = deviation > 0;
-
-              return (
-                <div className="flex flex-col gap-1 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Variable Budget</span>
-                    <PrivateValue>
-                      <span
-                        className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
-                      >
-                        {variablePercent.toFixed(0)}% / {targetPercent}%
-                      </span>
-                    </PrivateValue>
-                  </div>
-                  <span className="text-lg font-semibold text-blue-600">
-                    <PrivateValue>-{formatCurrency(variableBudget)}</PrivateValue>
-                  </span>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Planned spending</span>
-                    {income > 0 && (
-                      <PrivateValue>
-                        <span
-                          className={`text-xs font-medium ${isOverBudget ? "text-red-600" : "text-green-600"}`}
-                        >
-                          {isOverBudget ? "+" : ""}
-                          {deviation.toFixed(0)}%
-                        </span>
-                      </PrivateValue>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-            {(() => {
-              const income = stats.thisMonthRecurringIncome;
-              const fixedExpenses = stats.thisMonthRecurringExpenses;
-              const variableBudget = stats.totalMonthlyBudget;
-              const savings = income - fixedExpenses - variableBudget;
-              const savingsPercent = income > 0 ? (savings / income) * 100 : 0;
-              const targetPercent = 20;
-              const deviation = savingsPercent - targetPercent;
-              const isOnTrack = deviation >= 0;
-
-              return (
-                <div className="flex flex-col gap-1 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Savings & Investments</span>
-                    {income > 0 && (
-                      <PrivateValue>
-                        <span
-                          className={`text-xs font-medium ${isOnTrack ? "text-green-600" : "text-red-600"}`}
-                        >
-                          {savingsPercent.toFixed(0)}% / {targetPercent}%
-                        </span>
-                      </PrivateValue>
-                    )}
-                  </div>
-                  <span
-                    className={`text-lg font-semibold ${savings >= 0 ? "text-purple-600" : "text-red-600"}`}
-                  >
-                    <PrivateValue>
-                      {savings >= 0 ? "+" : ""}
-                      {formatCurrency(savings)}
-                    </PrivateValue>
-                  </span>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Available to save</span>
-                    {income > 0 && (
-                      <PrivateValue>
-                        <span
-                          className={`text-xs font-medium ${isOnTrack ? "text-green-600" : "text-red-600"}`}
-                        >
-                          {isOnTrack ? "+" : ""}
-                          {deviation.toFixed(0)}%
-                        </span>
-                      </PrivateValue>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
+            return (
+              <div className="grid gap-4 md:grid-cols-4">
+                <OutlookCard
+                  label="Expected Income"
+                  value={`+${formatCurrency(income)}`}
+                  subtext={`Avg: ${formatCurrency(stats.avgMonthlyRecurringIncome)}/mo`}
+                  colorClass="text-green-600"
+                  bgClass="bg-green-50 dark:bg-green-950/30"
+                />
+                <OutlookCard
+                  label="Fixed Expenses"
+                  value={`-${formatCurrency(fixedExpenses)}`}
+                  percentage={fixedPercent}
+                  targetPercentage={50}
+                  subtext={`Avg: ${formatCurrency(stats.avgMonthlyRecurringExpenses)}/mo`}
+                  colorClass="text-orange-600"
+                  bgClass="bg-orange-50 dark:bg-orange-950/30"
+                />
+                <OutlookCard
+                  label="Variable Budget"
+                  value={`-${formatCurrency(variableBudget)}`}
+                  percentage={variablePercent}
+                  targetPercentage={30}
+                  subtext="Planned spending"
+                  colorClass="text-blue-600"
+                  bgClass="bg-blue-50 dark:bg-blue-950/30"
+                />
+                <OutlookCard
+                  label="Savings & Investments"
+                  value={`${savings >= 0 ? "+" : ""}${formatCurrency(savings)}`}
+                  percentage={savingsPercent}
+                  targetPercentage={20}
+                  subtext="Available to save"
+                  colorClass={savings >= 0 ? "text-purple-600" : "text-red-600"}
+                  bgClass="bg-purple-50 dark:bg-purple-950/30"
+                  invertDeviation
+                />
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
@@ -359,8 +265,8 @@ export function DashboardContent({
             </div>
             <CardDescription>Assets by category</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+          <CardContent className="h-full">
+            <div className="h-full space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-blue-500" />
