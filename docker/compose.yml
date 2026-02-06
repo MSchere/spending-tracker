@@ -61,6 +61,9 @@ services:
       WISE_API_TOKEN: ${WISE_API_TOKEN:-}
       WISE_ENVIRONMENT: ${WISE_ENVIRONMENT:-production}
 
+      # Alpha Vantage API (for stock/crypto prices)
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
+
       # App settings
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Spending Tracker}
       NODE_ENV: production

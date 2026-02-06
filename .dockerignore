@@ -39,6 +39,7 @@ coverage
 Dockerfile*
 docker-compose*
 .dockerignore
+docker/backup
 
 # Misc
 *.log
