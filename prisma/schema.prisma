@@ -38,13 +38,14 @@ model User {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  wiseProfiles     WiseProfile[]
-  budgets          Budget[]
-  savingsGoals     SavingsGoal[]
-  indexaAccounts   IndexaAccount[]
-  tangibleAssets   TangibleAsset[]
-  financialAssets  FinancialAsset[]
-  preferences      UserPreferences?
+  wiseProfiles       WiseProfile[]
+  budgets            Budget[]
+  savingsGoals       SavingsGoal[]
+  indexaAccounts     IndexaAccount[]
+  tangibleAssets     TangibleAsset[]
+  financialAssets    FinancialAsset[]
+  preferences        UserPreferences?
+  manualTransactions Transaction[]    // Manual transactions (not from Wise)
 }
 
 model UserPreferences {
@@ -93,11 +94,12 @@ model WiseBalance {
 
 model Transaction {
   id                 String          @id @default(cuid())
-  wiseRefNumber      String?         @unique // Wise reference for dedup
-  profileId          String
+  wiseRefNumber      String?         @unique // Wise reference for dedup (null for manual)
+  profileId          String?         // Wise profile (null for manual transactions)
+  userId             String?         // User ID for manual transactions
   type               TransactionType
   amount             Decimal         @db.Decimal(18, 4)
-  currency           String          // Original currency from source (may include currencies we don't support)
+  currency           String          // Original currency from source
   amountEur          Decimal         @db.Decimal(18, 4) // Converted to EUR
   description        String?
   date               DateTime
@@ -108,9 +110,11 @@ model Transaction {
   updatedAt          DateTime        @updatedAt
 
   profile          WiseProfile?      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user             User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
   category         Category?         @relation(fields: [categoryId], references: [id])
   recurringExpense RecurringExpense? @relation(fields: [recurringExpenseId], references: [id])
 
+  @@index([userId])
   @@index([date])
   @@index([categoryId])
   @@index([type])

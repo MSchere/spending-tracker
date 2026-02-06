@@ -6,10 +6,7 @@ import { db } from "@/lib/server/db";
  * PATCH /api/transactions/[id] - Update a transaction
  * Supports bulk recategorization of similar transactions
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
 
@@ -34,13 +31,13 @@ export async function PATCH(
     });
 
     if (!transaction) {
-      return NextResponse.json(
-        { error: "Transaction not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
     }
 
-    if (transaction.profile?.userId !== session.user.id) {
+    // Check ownership - either manual transaction (userId) or Wise transaction (profile.userId)
+    const isOwner =
+      transaction.userId === session.user.id || transaction.profile?.userId === session.user.id;
+    if (!isOwner) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -51,10 +48,7 @@ export async function PATCH(
       });
 
       if (!category) {
-        return NextResponse.json(
-          { error: "Category not found" },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "Category not found" }, { status: 400 });
       }
     }
 
@@ -73,7 +67,7 @@ export async function PATCH(
 
       const result = await db.transaction.updateMany({
         where: {
-          profileId: { in: profileIds },
+          OR: [{ profileId: { in: profileIds } }, { userId: session.user.id }],
           description: {
             contains: keywordLower,
             mode: "insensitive",
@@ -119,9 +113,6 @@ export async function PATCH(
     });
   } catch (error) {
     console.error("Update transaction error:", error);
-    return NextResponse.json(
-      { error: "Failed to update transaction" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to update transaction" }, { status: 500 });
   }
 }

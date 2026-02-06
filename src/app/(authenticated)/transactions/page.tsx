@@ -17,13 +17,15 @@ async function getTransactionsData(
   });
   const profileIds = userProfiles.map((p) => p.id);
 
-  // Build where clause
-  const where: {
-    profileId: { in: string[] };
+  // Build where clause - include both Wise transactions and manual transactions
+  type WhereClause = {
+    OR: Array<{ profileId: { in: string[] } } | { userId: string }>;
     type?: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT";
     categoryId?: string | null;
-  } = {
-    profileId: { in: profileIds },
+  };
+
+  const where: WhereClause = {
+    OR: [{ profileId: { in: profileIds } }, { userId }],
   };
 
   if (typeFilter && typeFilter !== "all") {
@@ -85,12 +87,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const categoryFilter = params.category;
 
   const { transactions, categories, totalCount, totalPages, currentPage } =
-    await getTransactionsData(
-      session.user.id,
-      page,
-      typeFilter,
-      categoryFilter
-    );
+    await getTransactionsData(session.user.id, page, typeFilter, categoryFilter);
 
   // Serialize for client component
   const serializedTransactions = transactions.map((t) => ({

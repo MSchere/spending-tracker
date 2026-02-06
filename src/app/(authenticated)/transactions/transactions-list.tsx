@@ -29,6 +29,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -41,6 +42,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Plus,
 } from "lucide-react";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
 
@@ -119,6 +121,23 @@ export function TransactionsList({
   const [applyToSimilar, setApplyToSimilar] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  // Add transaction dialog state
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newTxType, setNewTxType] = useState<"INCOME" | "EXPENSE">("EXPENSE");
+  const [newTxAmount, setNewTxAmount] = useState("");
+  const [newTxDescription, setNewTxDescription] = useState("");
+  const [newTxDate, setNewTxDate] = useState("");
+  const [newTxCategoryId, setNewTxCategoryId] = useState("");
+
+  function resetAddForm() {
+    setNewTxType("EXPENSE");
+    setNewTxAmount("");
+    setNewTxDescription("");
+    setNewTxDate("");
+    setNewTxCategoryId("");
+  }
 
   // Navigate with filters
   function updateFilters(updates: { page?: number; type?: string; category?: string }) {
@@ -239,6 +258,43 @@ export function TransactionsList({
     }
   }
 
+  async function handleCreateTransaction() {
+    if (!newTxAmount || !newTxDescription || !newTxDate) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    setIsCreating(true);
+
+    try {
+      const response = await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: newTxType,
+          amount: parseFloat(newTxAmount),
+          description: newTxDescription,
+          date: newTxDate,
+          categoryId: newTxCategoryId === "none" ? null : newTxCategoryId || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to create transaction");
+      }
+
+      toast.success("Transaction created");
+      setIsAddDialogOpen(false);
+      resetAddForm();
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create transaction");
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
   function handleTypeChange(value: string) {
     setTypeFilter(value);
     updateFilters({ type: value });
@@ -292,6 +348,107 @@ export function TransactionsList({
             emptyText="No category found."
             className="w-full sm:w-[180px]"
           />
+
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Transaction
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Manual Transaction</DialogTitle>
+                <DialogDescription>
+                  Add a transaction that is not synced from Wise (e.g., meal vouchers, benefits)
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="txType">Type</Label>
+                  <Select
+                    value={newTxType}
+                    onValueChange={(v) => setNewTxType(v as "INCOME" | "EXPENSE")}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="EXPENSE">Expense</SelectItem>
+                      <SelectItem value="INCOME">Income</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="txDescription">Description</Label>
+                  <Input
+                    id="txDescription"
+                    value={newTxDescription}
+                    onChange={(e) => setNewTxDescription(e.target.value)}
+                    placeholder="Meal Vouchers, Company Benefits"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="txAmount">Amount (EUR)</Label>
+                    <Input
+                      id="txAmount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newTxAmount}
+                      onChange={(e) => setNewTxAmount(e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="txDate">Date</Label>
+                    <Input
+                      id="txDate"
+                      type="date"
+                      value={newTxDate}
+                      onChange={(e) => setNewTxDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="txCategory">Category (optional)</Label>
+                  <Combobox
+                    options={[
+                      { value: "none", label: "None" },
+                      ...categories
+                        .filter((cat) => cat.type === newTxType)
+                        .map((cat) => ({
+                          value: cat.id,
+                          label: cat.name,
+                          color: cat.color || undefined,
+                        })),
+                    ]}
+                    value={newTxCategoryId}
+                    onValueChange={setNewTxCategoryId}
+                    placeholder="Select a category"
+                    searchPlaceholder="Search categories..."
+                    emptyText="No category found."
+                  />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateTransaction} disabled={isCreating}>
+                  {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
