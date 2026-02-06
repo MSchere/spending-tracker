@@ -45,12 +45,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         purchaseDate: asset.purchaseDate.toISOString(),
         purchasePrice: asset.purchasePrice.toNumber(),
         salvageValue: asset.salvageValue?.toNumber() ?? null,
-        valuations: asset.valuations.map((v) => ({
-          id: v.id,
-          date: v.date.toISOString(),
-          value: v.value.toNumber(),
-          note: v.note,
-        })),
       },
       depreciationSchedule: depreciationSchedule.map((point) => ({
         date: point.date.toISOString(),

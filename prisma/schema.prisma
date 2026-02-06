@@ -338,7 +338,6 @@ enum DepreciationMethod {
   STRAIGHT_LINE     // Linear: (Cost - Salvage) / Useful Life per year
   DECLINING_BALANCE // Accelerated: Fixed % of remaining value per year
   NONE              // No depreciation (real estate, collectibles)
-  MANUAL            // User enters valuations manually
 }
 
 model TangibleAsset {
@@ -356,24 +355,9 @@ model TangibleAsset {
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
 
-  user       User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  valuations TangibleAssetValuation[]
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-}
-
-model TangibleAssetValuation {
-  id        String   @id @default(cuid())
-  assetId   String
-  date      DateTime @db.Date
-  value     Decimal  @db.Decimal(18, 4)
-  note      String?  // "Annual checkup", "Market adjustment"
-  createdAt DateTime @default(now())
-
-  asset TangibleAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
-
-  @@unique([assetId, date])
-  @@index([assetId])
 }
 
 // ============================================================================

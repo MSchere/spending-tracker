@@ -159,6 +159,7 @@ export const COMMON_CRYPTO_SYMBOLS = [
   { symbol: "LINK", name: "Chainlink" },
   { symbol: "UNI", name: "Uniswap" },
   { symbol: "LTC", name: "Litecoin" },
+  { symbol: "XMR", name: "Monero" },
   { symbol: "ATOM", name: "Cosmos" },
   { symbol: "XLM", name: "Stellar" },
   { symbol: "ALGO", name: "Algorand" },

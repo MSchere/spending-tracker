@@ -1,4 +1,5 @@
 import { env } from "@/env";
+import { getCoinGeckoClient } from "@/lib/server/coingecko";
 import type {
   AlphaVantageGlobalQuote,
   AlphaVantageCryptoRate,
@@ -194,20 +195,37 @@ export class AlphaVantageClient {
 
   /**
    * Get current crypto exchange rate (transformed)
+   * Tries Alpha Vantage first, falls back to CoinGecko for unsupported cryptos
    */
   async getCryptoQuote(symbol: string, toCurrency: string = "USD"): Promise<CryptoQuote> {
-    const raw = await this.getCryptoRateRaw(symbol, toCurrency);
-    const rate = raw["Realtime Currency Exchange Rate"];
+    // Try Alpha Vantage real-time exchange rate endpoint
+    try {
+      const raw = await this.getCryptoRateRaw(symbol, toCurrency);
+      const rate = raw["Realtime Currency Exchange Rate"];
 
-    if (!rate || !rate["5. Exchange Rate"]) {
-      throw new Error(`No rate found for crypto: ${symbol}`);
+      if (rate && rate["5. Exchange Rate"]) {
+        return {
+          symbol: rate["1. From_Currency Code"],
+          price: parseFloat(rate["5. Exchange Rate"]),
+          lastRefreshed: rate["6. Last Refreshed"],
+        };
+      }
+    } catch {
+      // Fall through to CoinGecko
     }
 
-    return {
-      symbol: rate["1. From_Currency Code"],
-      price: parseFloat(rate["5. Exchange Rate"]),
-      lastRefreshed: rate["6. Last Refreshed"],
-    };
+    // Fallback: CoinGecko
+    const coinGecko = getCoinGeckoClient();
+    if (coinGecko.isSymbolSupported(symbol)) {
+      const result = await coinGecko.getPriceBySymbol(symbol, toCurrency);
+      return {
+        symbol: result.symbol,
+        price: result.price,
+        lastRefreshed: result.lastUpdated,
+      };
+    }
+
+    throw new Error(`No price data found for crypto: ${symbol}`);
   }
 
   /**

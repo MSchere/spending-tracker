@@ -90,12 +90,6 @@ export function calculateDepreciation(
       currentValue = purchasePrice;
       break;
 
-    case "MANUAL":
-      // For manual method, caller should use the latest valuation instead
-      // This function returns purchase price as fallback
-      currentValue = purchasePrice;
-      break;
-
     case "STRAIGHT_LINE": {
       // Linear depreciation: (Cost - Salvage) / Useful Life per year
       const usefulLife = asset.usefulLifeYears ?? 10;
@@ -150,7 +144,7 @@ export function calculateDepreciation(
 
 /**
  * Generate depreciation schedule data points for charting.
- * Returns monthly data points from purchase date to end of useful life (or current date + 2 years if NONE/MANUAL).
+ * Returns monthly data points from purchase date to end of useful life (or current date + 2 years if NONE).
  */
 export function generateDepreciationSchedule(
   asset: AssetForDepreciation,
@@ -161,7 +155,7 @@ export function generateDepreciationSchedule(
   const startDate = new Date(asset.purchaseDate);
   let endDate: Date;
 
-  if (asset.depreciationMethod === "NONE" || asset.depreciationMethod === "MANUAL") {
+  if (asset.depreciationMethod === "NONE") {
     // For non-depreciating assets, show 5 years from purchase
     endDate = new Date(startDate);
     endDate.setFullYear(endDate.getFullYear() + 5);

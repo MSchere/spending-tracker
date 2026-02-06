@@ -72,12 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate depreciation method if provided
-    const validMethods: DepreciationMethod[] = [
-      "STRAIGHT_LINE",
-      "DECLINING_BALANCE",
-      "NONE",
-      "MANUAL",
-    ];
+    const validMethods: DepreciationMethod[] = ["STRAIGHT_LINE", "DECLINING_BALANCE", "NONE"];
     if (depreciationMethod && !validMethods.includes(depreciationMethod)) {
       return NextResponse.json(
         { error: `Invalid depreciation method. Must be one of: ${validMethods.join(", ")}` },

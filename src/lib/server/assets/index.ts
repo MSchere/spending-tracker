@@ -14,14 +14,11 @@ export {
   createTangibleAsset,
   updateTangibleAsset,
   deleteTangibleAsset,
-  addAssetValuation,
 } from "./queries";
 
 export type {
-  TangibleAssetWithValuations,
   TangibleAssetSummary,
   TangibleAssetsTotals,
   CreateTangibleAssetInput,
   UpdateTangibleAssetInput,
-  CreateValuationInput,
 } from "./queries";

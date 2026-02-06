@@ -1,20 +1,10 @@
 import { db } from "@/lib/server/db";
-import {
-  TangibleAssetCategory,
-  DepreciationMethod,
-  TangibleAsset,
-  TangibleAssetValuation,
-  Currency,
-} from "@prisma/client";
+import { TangibleAssetCategory, DepreciationMethod, TangibleAsset, Currency } from "@prisma/client";
 import {
   calculateDepreciation,
   calculateDefaultSalvageValue,
   CATEGORY_DEFAULTS,
 } from "./depreciation";
-
-export type TangibleAssetWithValuations = TangibleAsset & {
-  valuations: TangibleAssetValuation[];
-};
 
 export interface TangibleAssetSummary {
   id: string;
@@ -32,11 +22,6 @@ export interface TangibleAssetSummary {
   depreciationPercent: number;
   yearsOwned: number;
   remainingLifeYears: number | null;
-  lastValuation: {
-    date: string;
-    value: number;
-    note: string | null;
-  } | null;
 }
 
 export interface TangibleAssetsTotals {
@@ -53,52 +38,17 @@ export interface TangibleAssetsTotals {
 export async function getTangibleAssets(userId: string): Promise<TangibleAssetSummary[]> {
   const assets = await db.tangibleAsset.findMany({
     where: { userId },
-    include: {
-      valuations: {
-        orderBy: { date: "desc" },
-        take: 1, // Only need the latest valuation
-      },
-    },
     orderBy: { createdAt: "desc" },
   });
 
   return assets.map((asset) => {
-    const lastValuation = asset.valuations[0] ?? null;
-
-    // For MANUAL method, use last valuation if available
-    let currentValue: number;
-    let depreciation: number;
-    let depreciationPercent: number;
-    let yearsOwned: number;
-    let remainingLifeYears: number | null;
-
-    if (asset.depreciationMethod === "MANUAL" && lastValuation) {
-      const purchasePrice = asset.purchasePrice.toNumber();
-      currentValue = lastValuation.value.toNumber();
-      depreciation = purchasePrice - currentValue;
-      depreciationPercent = purchasePrice > 0 ? (depreciation / purchasePrice) * 100 : 0;
-
-      const daysOwned = Math.max(
-        0,
-        (new Date().getTime() - asset.purchaseDate.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      yearsOwned = daysOwned / 365.25;
-      remainingLifeYears = null;
-    } else {
-      const result = calculateDepreciation({
-        purchaseDate: asset.purchaseDate,
-        purchasePrice: asset.purchasePrice,
-        depreciationMethod: asset.depreciationMethod,
-        usefulLifeYears: asset.usefulLifeYears,
-        salvageValue: asset.salvageValue,
-      });
-
-      currentValue = result.currentValue;
-      depreciation = result.totalDepreciation;
-      depreciationPercent = result.depreciationPercent;
-      yearsOwned = result.yearsOwned;
-      remainingLifeYears = result.remainingLifeYears;
-    }
+    const result = calculateDepreciation({
+      purchaseDate: asset.purchaseDate,
+      purchasePrice: asset.purchasePrice,
+      depreciationMethod: asset.depreciationMethod,
+      usefulLifeYears: asset.usefulLifeYears,
+      salvageValue: asset.salvageValue,
+    });
 
     return {
       id: asset.id,
@@ -107,22 +57,15 @@ export async function getTangibleAssets(userId: string): Promise<TangibleAssetSu
       category: asset.category,
       purchaseDate: asset.purchaseDate.toISOString(),
       purchasePrice: asset.purchasePrice.toNumber(),
-      currentValue,
+      currentValue: result.currentValue,
       currency: asset.currency,
       depreciationMethod: asset.depreciationMethod,
       usefulLifeYears: asset.usefulLifeYears,
       salvageValue: asset.salvageValue?.toNumber() ?? null,
-      depreciation,
-      depreciationPercent,
-      yearsOwned,
-      remainingLifeYears,
-      lastValuation: lastValuation
-        ? {
-            date: lastValuation.date.toISOString(),
-            value: lastValuation.value.toNumber(),
-            note: lastValuation.note,
-          }
-        : null,
+      depreciation: result.totalDepreciation,
+      depreciationPercent: result.depreciationPercent,
+      yearsOwned: result.yearsOwned,
+      remainingLifeYears: result.remainingLifeYears,
     };
   });
 }
@@ -149,19 +92,14 @@ export async function getTangibleAssetsTotals(userId: string): Promise<TangibleA
 }
 
 /**
- * Get a single tangible asset by ID with all valuations.
+ * Get a single tangible asset by ID.
  */
 export async function getTangibleAssetById(
   id: string,
   userId: string
-): Promise<TangibleAssetWithValuations | null> {
+): Promise<TangibleAsset | null> {
   return db.tangibleAsset.findFirst({
     where: { id, userId },
-    include: {
-      valuations: {
-        orderBy: { date: "desc" },
-      },
-    },
   });
 }
 
@@ -271,47 +209,4 @@ export async function deleteTangibleAsset(id: string, userId: string): Promise<b
   });
 
   return true;
-}
-
-export interface CreateValuationInput {
-  date: Date;
-  value: number;
-  note?: string;
-}
-
-/**
- * Add a manual valuation to an asset.
- */
-export async function addAssetValuation(
-  assetId: string,
-  userId: string,
-  input: CreateValuationInput
-): Promise<TangibleAssetValuation | null> {
-  // Verify ownership
-  const asset = await db.tangibleAsset.findFirst({
-    where: { id: assetId, userId },
-  });
-
-  if (!asset) {
-    return null;
-  }
-
-  return db.tangibleAssetValuation.upsert({
-    where: {
-      assetId_date: {
-        assetId,
-        date: input.date,
-      },
-    },
-    create: {
-      assetId,
-      date: input.date,
-      value: input.value,
-      note: input.note,
-    },
-    update: {
-      value: input.value,
-      note: input.note,
-    },
-  });
 }

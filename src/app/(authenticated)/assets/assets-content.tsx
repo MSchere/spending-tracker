@@ -64,7 +64,6 @@ const DEPRECIATION_METHODS = [
     description: "Higher depreciation early",
   },
   { value: "NONE", label: "No Depreciation", description: "Value stays constant" },
-  { value: "MANUAL", label: "Manual Valuations", description: "You enter values manually" },
 ] as const;
 
 // Category defaults (matching server-side)
@@ -235,7 +234,7 @@ export function AssetsContent({ initialAssets, initialTotals }: AssetsContentPro
     }
   }
 
-  const showDepreciationSettings = depreciationMethod !== "NONE" && depreciationMethod !== "MANUAL";
+  const showDepreciationSettings = depreciationMethod !== "NONE";
 
   return (
     <>
