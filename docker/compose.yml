@@ -64,6 +64,12 @@ services:
       # Alpha Vantage API (for stock/crypto prices)
       ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
 
+      # Indexa Capital API (optional)
+      INDEXA_API_TOKEN: ${INDEXA_API_TOKEN:-}
+      INDEXA_USERNAME: ${INDEXA_USERNAME:-}
+      INDEXA_PASSWORD: ${INDEXA_PASSWORD:-}
+      INDEXA_DOCUMENT: ${INDEXA_DOCUMENT:-}
+
       # App settings
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Spending Tracker}
       NODE_ENV: production
