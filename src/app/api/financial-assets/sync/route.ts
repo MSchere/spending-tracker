@@ -31,7 +31,7 @@ export async function POST() {
       where: { userId: session.user.id },
       select: { currency: true },
     });
-    const targetCurrency = preferences?.currency ?? "EUR";
+    const currency = preferences?.currency ?? "EUR";
 
     const assets = await getFinancialAssets(session.user.id);
 
@@ -50,15 +50,15 @@ export async function POST() {
 
         if (asset.type === "CRYPTO") {
           // Crypto: fetch in user's preferred currency
-          const quote = await client.getCryptoQuote(asset.symbol, targetCurrency);
+          const quote = await client.getCryptoQuote(asset.symbol, currency);
           price = quote.price;
         } else {
           // STOCK or ETF: fetch and convert to user's preferred currency
-          const quote = await client.getStockQuote(asset.symbol, targetCurrency);
+          const quote = await client.getStockQuote(asset.symbol, currency);
           price = quote.price;
         }
 
-        await updateAssetPrice(asset.id, price, targetCurrency);
+        await updateAssetPrice(asset.id, price, currency);
         updated++;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
@@ -75,7 +75,7 @@ export async function POST() {
     return NextResponse.json({
       updated,
       total: assets.length,
-      currency: targetCurrency,
+      currency,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {

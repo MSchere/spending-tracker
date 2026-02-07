@@ -89,7 +89,7 @@ export class AlphaVantageClient {
    * Get current stock/ETF quote (transformed)
    * Optionally converts to target currency using forex rates
    */
-  async getStockQuote(symbol: string, targetCurrency?: string): Promise<StockQuote> {
+  async getStockQuote(symbol: string, targetCurrency: string): Promise<StockQuote> {
     const raw = await this.getGlobalQuoteRaw(symbol);
     const quote = raw["Global Quote"];
 
@@ -102,7 +102,7 @@ export class AlphaVantageClient {
     let previousClose = parseFloat(quote["08. previous close"]);
 
     // US stocks are in USD - convert if target currency is different
-    if (targetCurrency && targetCurrency !== "USD") {
+    if (targetCurrency !== "USD") {
       const forexRate = await this.getForexRate("USD", targetCurrency);
       price = price * forexRate;
       change = change * forexRate;
@@ -197,7 +197,7 @@ export class AlphaVantageClient {
    * Get current crypto exchange rate (transformed)
    * Tries Alpha Vantage first, falls back to CoinGecko for unsupported cryptos
    */
-  async getCryptoQuote(symbol: string, toCurrency: string = "USD"): Promise<CryptoQuote> {
+  async getCryptoQuote(symbol: string, toCurrency: string): Promise<CryptoQuote> {
     // Try Alpha Vantage real-time exchange rate endpoint
     try {
       const raw = await this.getCryptoRateRaw(symbol, toCurrency);
@@ -233,7 +233,7 @@ export class AlphaVantageClient {
    */
   async getCryptoDailyRaw(
     symbol: string,
-    market: string = "USD"
+    market: string = "EUR"
   ): Promise<AlphaVantageCryptoDaily> {
     return this.request<AlphaVantageCryptoDaily>({
       function: "DIGITAL_CURRENCY_DAILY",
@@ -245,7 +245,7 @@ export class AlphaVantageClient {
   /**
    * Get crypto daily price history (transformed)
    */
-  async getCryptoHistory(symbol: string, market: string = "USD"): Promise<PriceHistoryPoint[]> {
+  async getCryptoHistory(symbol: string, market: string = "EUR"): Promise<PriceHistoryPoint[]> {
     const raw = await this.getCryptoDailyRaw(symbol, market);
     const timeSeries = raw["Time Series (Digital Currency Daily)"];
 

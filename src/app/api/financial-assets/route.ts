@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       type: type as FinancialAssetType,
       shares: Number(shares),
       avgCostBasis: Number(avgCostBasis),
-      currency: currency || "USD",
+      currency: currency,
     });
 
     // Try to fetch initial price (non-blocking, don't fail if it errors)
@@ -97,10 +97,10 @@ export async function POST(request: NextRequest) {
         let price: number;
 
         if (type === "CRYPTO") {
-          const quote = await client.getCryptoQuote(symbol);
+          const quote = await client.getCryptoQuote(symbol, currency);
           price = quote.price;
         } else {
-          const quote = await client.getStockQuote(symbol);
+          const quote = await client.getStockQuote(symbol, currency);
           price = quote.price;
         }
 

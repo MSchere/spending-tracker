@@ -280,8 +280,8 @@ export interface FinancialAssetsSyncResult {
 export async function syncFinancialAssetPrices(
   userId: string,
   client: {
-    getStockQuote: (symbol: string) => Promise<{ price: number }>;
-    getCryptoQuote: (symbol: string) => Promise<{ price: number }>;
+    getStockQuote: (symbol: string, currency: Currency) => Promise<{ price: number }>;
+    getCryptoQuote: (symbol: string, currency: Currency) => Promise<{ price: number }>;
   }
 ): Promise<FinancialAssetsSyncResult> {
   const assets = await prisma.financialAsset.findMany({
@@ -305,11 +305,11 @@ export async function syncFinancialAssetPrices(
       let price: number;
 
       if (asset.type === "CRYPTO") {
-        const quote = await client.getCryptoQuote(asset.symbol);
+        const quote = await client.getCryptoQuote(asset.symbol, asset.currency);
         price = quote.price;
       } else {
         // STOCK or ETF
-        const quote = await client.getStockQuote(asset.symbol);
+        const quote = await client.getStockQuote(asset.symbol, asset.currency);
         price = quote.price;
       }
 

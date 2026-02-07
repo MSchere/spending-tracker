@@ -6,13 +6,14 @@ A self-hosted personal finance dashboard with automatic expense tracking, invest
 
 - **Wise Integration**: Automatically sync transactions from your Wise account
 - **Indexa Capital Integration**: Track your Indexa Capital investment portfolios
-- **Financial Assets**: Track stocks, ETFs, and crypto with real-time prices via Alpha Vantage API
+- **Financial Assets**: Track stocks, ETFs, and crypto with real-time prices via Alpha Vantage API & CoinGecko API
 - **Tangible Assets**: Track physical assets (vehicles, electronics, real estate) with depreciation calculations
 - **Manual Transactions**: Add transactions manually for cash expenses, benefits, meal vouchers, etc.
 - **Transaction Management**: View, search, filter, and categorize transactions
 - **Budget Tracking**: Set monthly budgets per category with progress visualization
 - **Savings Goals**: Track progress toward financial goals
 - **Recurring Expenses**: Monitor regular payments and subscriptions
+
 - **Dashboard**: Visual overview with charts for cash flow, spending by category, net worth breakdown, and investment performance
 - **Privacy Mode**: Toggle to mask sensitive financial data
 - **Secure Authentication**: Email/password with mandatory TOTP 2FA
@@ -94,30 +95,6 @@ pnpm dev
 
 Visit [http://localhost:3000](http://localhost:3000)
 
-## Production Deployment
-
-### NixOS (Recommended for Self-Hosting)
-
-A NixOS configuration is provided in `nix/configuration.nix` for deploying on NixOS LXC containers or bare-metal servers.
-
-**Features:**
-
-- PostgreSQL 16 with automatic database setup
-- Systemd service for the Next.js app
-- Nginx reverse proxy
-- Secrets management via files
-
-**Deployment steps:**
-
-1. Copy `nix/configuration.nix` to your NixOS machine
-2. Adjust hostnames, ports, and secret paths as needed
-3. Run `nixos-rebuild switch`
-4. Create secrets in `/var/lib/spending-tracker/secrets/`
-5. Clone the repo, install dependencies, and build
-6. Run migrations and start the service
-
-Refer to the comments in `nix/configuration.nix` for detailed instructions.
-
 ### Manual Deployment
 
 1. **Build the application:**
@@ -147,34 +124,6 @@ DATABASE_URL="your-connection-string" pnpm prisma migrate deploy
 ```bash
 cd .next/standalone
 NODE_ENV=production node server.js
-```
-
-### Reverse Proxy (Recommended)
-
-For production, place behind a reverse proxy (nginx, Traefik, Caddy) with SSL.
-
-Example nginx config:
-
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name your-domain.com;
-
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
 ```
 
 ## Available Scripts
