@@ -8,6 +8,7 @@ A self-hosted personal finance dashboard with automatic expense tracking, invest
 - **Indexa Capital Integration**: Track your Indexa Capital investment portfolios
 - **Financial Assets**: Track stocks, ETFs, and crypto with real-time prices via Alpha Vantage API
 - **Tangible Assets**: Track physical assets (vehicles, electronics, real estate) with depreciation calculations
+- **Manual Transactions**: Add transactions manually for cash expenses, benefits, meal vouchers, etc.
 - **Transaction Management**: View, search, filter, and categorize transactions
 - **Budget Tracking**: Set monthly budgets per category with progress visualization
 - **Savings Goals**: Track progress toward financial goals
@@ -30,7 +31,7 @@ A self-hosted personal finance dashboard with automatic expense tracking, invest
 
 - Node.js 22+
 - pnpm 9+
-- Docker & Docker Compose (for database/deployment)
+- PostgreSQL 16 (local install or via Docker)
 - Wise Personal API Token ([Get one here](https://wise.com/settings/api-tokens))
 
 ## Development Setup
@@ -39,7 +40,7 @@ A self-hosted personal finance dashboard with automatic expense tracking, invest
 
 ```bash
 git clone https://github.com/MSchere/spending-tracker.git
-cd spending_tracker
+cd spending-tracker
 pnpm install
 ```
 
@@ -52,8 +53,8 @@ cp .env.example .env
 Edit `.env` and fill in the required values:
 
 ```env
-# Database (for local dev, matches docker/compose.dev.yml)
-DATABASE_URL="postgresql://spending:spending_password@localhost:5432/spending_tracker"
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/spending_tracker"
 
 # NextAuth (generate secret: openssl rand -base64 32)
 NEXTAUTH_URL="http://localhost:3000"
@@ -66,12 +67,8 @@ ENCRYPTION_KEY="your-32-character-encryption-key"
 WISE_API_TOKEN="your-wise-api-token"
 WISE_ENVIRONMENT="production"  # or "sandbox" for testing
 
-# Indexa Capital (optional - choose one auth method)
+# Indexa Capital (optional)
 INDEXA_API_TOKEN="your-indexa-token"
-# OR
-INDEXA_USERNAME="your-username"
-INDEXA_PASSWORD="your-password"
-INDEXA_DOCUMENT="your-document-id"
 
 # Alpha Vantage (optional - for stocks/crypto prices)
 ALPHA_VANTAGE_API_KEY="your-api-key"
@@ -79,9 +76,7 @@ ALPHA_VANTAGE_API_KEY="your-api-key"
 
 ### 3. Start Database
 
-```bash
-docker compose -f docker/compose.dev.yml up -d
-```
+You'll need a PostgreSQL 16 instance. You can run one locally or use a managed service.
 
 ### 4. Initialize Database
 
@@ -101,58 +96,60 @@ Visit [http://localhost:3000](http://localhost:3000)
 
 ## Production Deployment
 
-### Docker Compose (Recommended)
+### NixOS (Recommended for Self-Hosting)
 
-1. **Configure environment**:
+A NixOS configuration is provided in `nix/configuration.nix` for deploying on NixOS LXC containers or bare-metal servers.
 
-```bash
-cp .env.example .env
-```
+**Features:**
 
-Edit `.env` with production values:
+- PostgreSQL 16 with automatic database setup
+- Systemd service for the Next.js app
+- Nginx reverse proxy
+- Secrets management via files
 
-```env
-# Database
-POSTGRES_USER="spending"
-POSTGRES_PASSWORD="secure-password-here"
-POSTGRES_DB="spending_tracker"
+**Deployment steps:**
 
-# NextAuth
-NEXTAUTH_URL="https://your-domain.com"
-NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
+1. Copy `nix/configuration.nix` to your NixOS machine
+2. Adjust hostnames, ports, and secret paths as needed
+3. Run `nixos-rebuild switch`
+4. Create secrets in `/var/lib/spending-tracker/secrets/`
+5. Clone the repo, install dependencies, and build
+6. Run migrations and start the service
 
-# Encryption (exactly 32 characters)
-ENCRYPTION_KEY="generate-32-char-key-here"
+Refer to the comments in `nix/configuration.nix` for detailed instructions.
 
-# Wise API
-WISE_API_TOKEN="your-wise-api-token"
-WISE_ENVIRONMENT="production"
+### Manual Deployment
 
-# Indexa Capital (optional)
-INDEXA_API_TOKEN="your-indexa-token"
-
-# Alpha Vantage (optional)
-ALPHA_VANTAGE_API_KEY="your-api-key"
-
-# Optional
-APP_PORT="3000"
-```
-
-2. **Deploy**:
+1. **Build the application:**
 
 ```bash
-docker compose -f docker/compose.yml up -d
+pnpm install
+pnpm db:generate
+pnpm build
 ```
 
-3. **Seed the database** (first time only):
+2. **Prepare standalone build:**
 
 ```bash
-docker compose -f docker/compose.yml exec app npx tsx prisma/seed.ts
+cp -r .next/static .next/standalone/.next/
+cp -r public .next/standalone/
+cp -r prisma .next/standalone/
 ```
 
-4. **Access** at `http://localhost:3000` (or your configured port)
+3. **Run migrations:**
 
-### Reverse Proxy (Optional)
+```bash
+DATABASE_URL="your-connection-string" pnpm prisma migrate deploy
+```
+
+4. **Start the server:**
+
+```bash
+cd .next/standalone
+NODE_ENV=production node server.js
+```
+
+### Reverse Proxy (Recommended)
 
 For production, place behind a reverse proxy (nginx, Traefik, Caddy) with SSL.
 
@@ -200,12 +197,9 @@ server {
 ## Project Structure
 
 ```
-spending_tracker/
-├── docker/                 # Docker configuration
-│   ├── Dockerfile          # Production multi-stage build
-│   ├── compose.yml         # Production compose (app + db)
-│   ├── compose.dev.yml     # Development compose (db only)
-│   └── entrypoint.sh       # Container startup script
+spending-tracker/
+├── nix/                    # NixOS deployment configuration
+│   └── configuration.nix   # NixOS module for LXC/server deployment
 ├── prisma/
 │   ├── schema.prisma       # Database schema
 │   └── seed.ts             # Database seeder
@@ -262,17 +256,9 @@ pnpm install
 # Run migrations
 pnpm db:migrate
 
-# Rebuild (if using Docker)
-docker compose -f docker/compose.yml up -d --build
+# Rebuild for production
+pnpm build
 ```
-
-## Security Notes
-
-- 2FA is **mandatory** for all accounts
-- 2FA secrets are encrypted with AES-256-GCM
-- Wise API tokens are stored encrypted
-- All routes except auth pages require authentication
-- Passwords are hashed with bcrypt
 
 ## License
 
