@@ -120,22 +120,22 @@ export function InvestmentsContent({ summary, history, holdings }: InvestmentsCo
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Portfolio Evolution</CardTitle>
             <CardDescription>Value vs invested amount over the past year</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-hidden">
             <PortfolioEvolutionChart data={chartHistory} />
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Holdings Breakdown</CardTitle>
             <CardDescription>Current asset allocation by instrument</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-hidden">
             <HoldingsChart data={holdings} />
           </CardContent>
         </Card>

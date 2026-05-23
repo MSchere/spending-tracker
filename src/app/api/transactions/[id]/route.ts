@@ -70,7 +70,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           OR: [{ profileId: { in: profileIds } }, { userId: session.user.id }],
           description: {
             contains: keywordLower,
-            mode: "insensitive",
           },
         },
         data: {

@@ -98,7 +98,7 @@ export function HoldingsChart({ data }: HoldingsChartProps) {
         </Pie>
         <ChartLegend
           content={<ChartLegendContent nameKey="name" />}
-          className="flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center"
+          className="flex-wrap gap-2 [&>*]:basis-1/3 sm:[&>*]:basis-1/4 [&>*]:justify-center"
         />
       </PieChart>
     </ChartContainer>
