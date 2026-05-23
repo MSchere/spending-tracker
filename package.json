@@ -16,7 +16,7 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "db:fix": "tsx prisma/fix-transactions.ts",
-    "db:migrate-from-pg": "tsx prisma/migrate-pg-to-sqlite.ts"
+    "db:migrate-from-pg": "node prisma/migrate-pg-to-sqlite.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
