@@ -242,12 +242,12 @@ export function DashboardContent({
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Cash Flow</CardTitle>
             <CardDescription>Income vs Expenses - Last 6 Months</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-hidden">
             {isPrivate ? (
               <div className="flex h-[300px] items-center justify-center text-muted-foreground">
                 Chart hidden in private mode
@@ -323,12 +323,12 @@ export function DashboardContent({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Spending by Category</CardTitle>
             <CardDescription>{monthName} breakdown</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-hidden">
             {isPrivate ? (
               <div className="flex h-[300px] items-center justify-center text-muted-foreground">
                 Chart hidden in private mode
@@ -338,12 +338,12 @@ export function DashboardContent({
             )}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Budget Progress</CardTitle>
             <CardDescription>{monthName} spending vs budgets</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-hidden">
             {isPrivate ? (
               <div className="flex h-[300px] items-center justify-center text-muted-foreground">
                 Chart hidden in private mode

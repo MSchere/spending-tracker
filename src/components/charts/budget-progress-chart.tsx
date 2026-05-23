@@ -52,7 +52,7 @@ export function BudgetProgressChart({ data }: BudgetProgressChartProps) {
       <BarChart
         data={sortedData}
         layout="vertical"
-        margin={{ left: 0, right: 40 }}
+        margin={{ left: 0, right: 36, top: 0, bottom: 0 }}
         accessibilityLayer
       >
         <XAxis
@@ -67,8 +67,8 @@ export function BudgetProgressChart({ data }: BudgetProgressChartProps) {
           dataKey="name"
           tickLine={false}
           axisLine={false}
-          width={80}
-          tickFormatter={(value) => (value.length > 10 ? `${value.slice(0, 10)}...` : value)}
+          width={72}
+          tickFormatter={(value) => (value.length > 9 ? `${value.slice(0, 9)}…` : value)}
         />
         <ChartTooltip
           content={

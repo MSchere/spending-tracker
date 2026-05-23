@@ -9,7 +9,8 @@ import {
   getAlphaVantageClient,
   isAlphaVantageConfigured,
 } from "@/lib/server/alphavantage";
-import { FinancialAssetType } from "@prisma/client";
+import { FinancialAssetType, type Currency } from "@prisma/client";
+import { db } from "@/lib/server/db";
 
 const VALID_TYPES: FinancialAssetType[] = ["STOCK", "CRYPTO", "ETF"];
 
@@ -80,6 +81,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve currency: use body value, or fall back to user's preferred currency
+    const preferences = await db.userPreferences.findUnique({
+      where: { userId: session.user.id },
+      select: { currency: true },
+    });
+    const resolvedCurrency = (currency as Currency) || preferences?.currency || "EUR";
+
     const asset = await createFinancialAsset({
       userId: session.user.id,
       symbol: symbol.toUpperCase(),
@@ -87,7 +95,7 @@ export async function POST(request: NextRequest) {
       type: type as FinancialAssetType,
       shares: Number(shares),
       avgCostBasis: Number(avgCostBasis),
-      currency: currency,
+      currency: resolvedCurrency,
     });
 
     // Try to fetch initial price (non-blocking, don't fail if it errors)
@@ -97,14 +105,14 @@ export async function POST(request: NextRequest) {
         let price: number;
 
         if (type === "CRYPTO") {
-          const quote = await client.getCryptoQuote(symbol, currency);
+          const quote = await client.getCryptoQuote(symbol, asset.currency);
           price = quote.price;
         } else {
-          const quote = await client.getStockQuote(symbol, currency);
+          const quote = await client.getStockQuote(symbol, asset.currency);
           price = quote.price;
         }
 
-        await updateAssetPrice(asset.id, price);
+        await updateAssetPrice(asset.id, price, asset.currency);
       } catch (priceError) {
         // Log but don't fail - asset was created successfully
         console.warn(`Failed to fetch initial price for ${symbol}:`, priceError);

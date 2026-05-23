@@ -48,3 +48,8 @@ next-env.d.ts
 
 # Docker backup files (contain sensitive data)
 /docker/backup
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal

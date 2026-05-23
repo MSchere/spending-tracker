@@ -6,6 +6,66 @@ import {
   syncFinancialAssetPrices,
   type FinancialAssetsSyncResult,
 } from "../alphavantage";
+import { db } from "../db";
+import { addWeeks, addMonths, addQuarters, addYears, isBefore, startOfDay } from "date-fns";
+
+/**
+ * Advance the nextDueDate of past-due recurring expenses to the next future occurrence.
+ * Called automatically during every sync.
+ */
+export async function advanceRecurringDueDates(): Promise<number> {
+  const today = startOfDay(new Date());
+
+  const overdueItems = await db.recurringExpense.findMany({
+    where: {
+      isActive: true,
+      nextDueDate: { lt: today },
+    },
+  });
+
+  if (overdueItems.length === 0) return 0;
+
+  let advanced = 0;
+
+  for (const item of overdueItems) {
+    let next = new Date(item.nextDueDate);
+
+    // Advance by frequency until the date is today or in the future
+    while (isBefore(next, today)) {
+      switch (item.frequency) {
+        case "WEEKLY":
+          next = addWeeks(next, 1);
+          break;
+        case "BIWEEKLY":
+          next = addWeeks(next, 2);
+          break;
+        case "MONTHLY":
+          next = addMonths(next, 1);
+          break;
+        case "BIMONTHLY":
+          next = addMonths(next, 2);
+          break;
+        case "QUARTERLY":
+          next = addQuarters(next, 1);
+          break;
+        case "YEARLY":
+          next = addYears(next, 1);
+          break;
+        default:
+          next = addMonths(next, 1);
+      }
+    }
+
+    await db.recurringExpense.update({
+      where: { id: item.id },
+      data: { nextDueDate: next },
+    });
+
+    advanced++;
+  }
+
+  return advanced;
+}
 
 /**
  * Sync mode
@@ -37,6 +97,13 @@ export async function syncAllData(
   let indexaResult: IndexaSyncResult | null = null;
   let financialAssetsResult: FinancialAssetsSyncResult | null = null;
   const errors: string[] = [];
+
+  // Advance past-due recurring expense dates (always runs, non-critical)
+  try {
+    await advanceRecurringDueDates();
+  } catch (error) {
+    console.warn("Failed to advance recurring due dates:", error);
+  }
 
   // Sync Wise data
   try {

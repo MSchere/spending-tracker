@@ -1,12 +1,12 @@
 // Spending Tracker - Financial Dashboard Schema
-// Stack: Next.js 16, Prisma, NextAuth, PostgreSQL
+// Stack: Next.js 16, Prisma, NextAuth, SQLite
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
 }
 
 // ============================================================================
@@ -81,7 +81,7 @@ model WiseBalance {
   wiseBalanceId BigInt   @unique // Wise balance ID
   profileId     String
   currency      String   // ISO currency code (from Wise API, may include currencies we don't support)
-  amount        Decimal  @db.Decimal(18, 4)
+  amount        Decimal
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -98,9 +98,9 @@ model Transaction {
   profileId          String?         // Wise profile (null for manual transactions)
   userId             String?         // User ID for manual transactions
   type               TransactionType
-  amount             Decimal         @db.Decimal(18, 4)
+  amount             Decimal
   currency           String          // Original currency from source
-  amountEur          Decimal         @db.Decimal(18, 4) // Converted to EUR
+  amountEur          Decimal         // Converted to EUR
   description        String?
   date               DateTime
   categoryId         String?
@@ -164,7 +164,7 @@ model Budget {
   id         String       @id @default(cuid())
   userId     String
   categoryId String
-  amount     Decimal      @db.Decimal(18, 4)
+  amount     Decimal
   currency   Currency     @default(EUR)
   period     BudgetPeriod
   startDate  DateTime
@@ -186,8 +186,8 @@ model SavingsGoal {
   id            String          @id @default(cuid())
   userId        String
   name          String
-  targetAmount  Decimal         @db.Decimal(18, 4)
-  currentAmount Decimal         @db.Decimal(18, 4) @default(0)
+  targetAmount  Decimal
+  currentAmount Decimal         @default(0)
   currency      Currency        @default(EUR)
   deadline      DateTime?
   type          SavingsGoalType
@@ -211,7 +211,7 @@ model RecurringExpense {
   id          String             @id @default(cuid())
   name        String
   type        RecurringType      @default(EXPENSE)
-  amount      Decimal            @db.Decimal(18, 4)
+  amount      Decimal
   currency    Currency           @default(EUR)
   frequency   RecurringFrequency
   nextDueDate DateTime
@@ -246,16 +246,16 @@ model ExchangeRate {
   id           String   @id @default(cuid())
   fromCurrency String   // ISO currency code (may include external currencies)
   toCurrency   String   // ISO currency code (may include external currencies)
-  rate         Decimal  @db.Decimal(18, 8)
-  date         DateTime @db.Date
+  rate         Decimal
+  date         DateTime
   createdAt    DateTime @default(now())
 
   @@unique([fromCurrency, toCurrency, date])
 }
 
 model AppSettings {
-  id              String   @id @default("settings")
-  primaryCurrency Currency @default(EUR)
+  id              String    @id @default("settings")
+  primaryCurrency Currency  @default(EUR)
   lastSyncAt      DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -280,16 +280,16 @@ enum SyncStatus {
 // ============================================================================
 
 model IndexaAccount {
-  id              String    @id @default(cuid())
-  userId          String
-  accountNumber   String    @unique // e.g., "PBKLBYZ5"
-  accountType     String             // "mutual" or "pension"
-  status          String             // "active", etc.
-  riskLevel       Int?               // 1-10
-  netContributions Decimal? @db.Decimal(18, 4) // Total deposits - withdrawals (Aportaciones)
-  lastSyncAt      DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  userId           String
+  accountNumber    String    @unique // e.g., "PBKLBYZ5"
+  accountType      String             // "mutual" or "pension"
+  status           String             // "active", etc.
+  riskLevel        Int?               // 1-10
+  netContributions Decimal?           // Total deposits - withdrawals (Aportaciones)
+  lastSyncAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   user      User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   snapshots IndexaPortfolioSnapshot[]
@@ -298,11 +298,11 @@ model IndexaAccount {
 model IndexaPortfolioSnapshot {
   id             String   @id @default(cuid())
   accountId      String
-  date           DateTime @db.Date
-  totalValue     Decimal  @db.Decimal(18, 4) // Current portfolio value
-  totalInvested  Decimal  @db.Decimal(18, 4) // Amount contributed
-  returns        Decimal  @db.Decimal(18, 4) // Profit/loss in EUR
-  returnsPercent Decimal  @db.Decimal(8, 4)  // Return percentage
+  date           DateTime
+  totalValue     Decimal  // Current portfolio value
+  totalInvested  Decimal  // Amount contributed
+  returns        Decimal  // Profit/loss in EUR
+  returnsPercent Decimal  // Return percentage
   createdAt      DateTime @default(now())
 
   account  IndexaAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -317,9 +317,9 @@ model IndexaHolding {
   instrumentName String  // "Vanguard Global Stock", etc.
   instrumentType String  // "Stocks", "Bonds", "Cash", etc.
   isin           String?
-  shares         Decimal @db.Decimal(18, 8)
-  value          Decimal @db.Decimal(18, 4)
-  weight         Decimal @db.Decimal(5, 2) // Portfolio percentage
+  shares         Decimal
+  value          Decimal
+  weight         Decimal // Portfolio percentage
 
   snapshot IndexaPortfolioSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
 }
@@ -350,12 +350,12 @@ model TangibleAsset {
   name               String                // "2015 Peugeot 308"
   description        String?
   category           TangibleAssetCategory
-  purchaseDate       DateTime              @db.Date
-  purchasePrice      Decimal               @db.Decimal(18, 4)
+  purchaseDate       DateTime
+  purchasePrice      Decimal
   currency           Currency              @default(EUR)
   depreciationMethod DepreciationMethod    @default(STRAIGHT_LINE)
   usefulLifeYears    Int?                  // For automatic depreciation
-  salvageValue       Decimal?              @db.Decimal(18, 4) // Residual value at end of life
+  salvageValue       Decimal?              // Residual value at end of life
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
 
@@ -380,10 +380,10 @@ model FinancialAsset {
   symbol        String             // "AAPL", "BTC", "VOO"
   name          String             // "Apple Inc.", "Bitcoin", "Vanguard S&P 500 ETF"
   type          FinancialAssetType
-  shares        Decimal            @db.Decimal(18, 8) // Supports fractional shares & crypto
-  avgCostBasis  Decimal            @db.Decimal(18, 4) // Average cost per share/unit
-  currency      Currency           @default(USD)      // Price currency
-  lastPrice     Decimal?           @db.Decimal(18, 4) // Latest price from API
+  shares        Decimal            // Supports fractional shares & crypto
+  avgCostBasis  Decimal            // Average cost per share/unit
+  currency      Currency           @default(USD) // Price currency
+  lastPrice     Decimal?           // Latest price from API
   lastPriceAt   DateTime?          // When price was last updated
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
@@ -398,8 +398,8 @@ model FinancialAsset {
 model FinancialAssetPrice {
   id        String   @id @default(cuid())
   assetId   String
-  date      DateTime @db.Date
-  price     Decimal  @db.Decimal(18, 4)
+  date      DateTime
+  price     Decimal
   createdAt DateTime @default(now())
 
   asset FinancialAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)

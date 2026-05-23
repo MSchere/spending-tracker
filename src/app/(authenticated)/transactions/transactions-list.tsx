@@ -311,14 +311,14 @@ export function TransactionsList({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search in current page..."
+            placeholder="Search by transaction name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Select value={typeFilter} onValueChange={handleTypeChange}>
             <SelectTrigger className="w-full sm:w-[150px]">
               <SelectValue placeholder="Type" />
@@ -351,7 +351,7 @@ export function TransactionsList({
 
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Transaction
               </Button>
@@ -452,7 +452,7 @@ export function TransactionsList({
         </div>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -478,7 +478,6 @@ export function TransactionsList({
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead>Category</TableHead>
               <TableHead className="text-right">
                 <Button
                   variant="ghost"
@@ -490,6 +489,7 @@ export function TransactionsList({
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
+              <TableHead>Category</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -512,21 +512,6 @@ export function TransactionsList({
                   <TableCell>
                     <p className="font-medium">{transaction.description}</p>
                   </TableCell>
-                  <TableCell>
-                    {transaction.categoryName ? (
-                      <Badge
-                        variant="outline"
-                        style={{
-                          borderColor: transaction.categoryColor || undefined,
-                          color: transaction.categoryColor || undefined,
-                        }}
-                      >
-                        {transaction.categoryName}
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">Uncategorized</Badge>
-                    )}
-                  </TableCell>
                   <TableCell className="text-right">
                     <span
                       className={`font-medium ${
@@ -544,6 +529,21 @@ export function TransactionsList({
                           {formatCurrency(Math.abs(transaction.amount), transaction.currency)}
                         </PrivateValue>
                       </p>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {transaction.categoryName ? (
+                      <Badge
+                        variant="outline"
+                        style={{
+                          borderColor: transaction.categoryColor || undefined,
+                          color: transaction.categoryColor || undefined,
+                        }}
+                      >
+                        {transaction.categoryName}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">Uncategorized</Badge>
                     )}
                   </TableCell>
                 </TableRow>

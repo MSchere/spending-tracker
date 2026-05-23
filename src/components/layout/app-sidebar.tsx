@@ -28,6 +28,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -67,6 +68,11 @@ export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { isSyncing, triggerSync } = useSync();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  function handleNavClick() {
+    if (isMobile) setOpenMobile(false);
+  }
 
   async function handleSync() {
     try {
@@ -88,7 +94,11 @@ export function AppSidebar() {
               <SidebarMenu>
                 {group.items.map((item) => (
                   <SidebarMenuItem key={item.name}>
-                    <SidebarMenuButton asChild isActive={pathname === item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.href}
+                      onClick={handleNavClick}
+                    >
                       <Link href={item.href}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.name}</span>

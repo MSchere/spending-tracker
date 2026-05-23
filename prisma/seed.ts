@@ -1,15 +1,11 @@
 import { PrismaClient, CategoryType } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
+import { PrismaLibSql } from "@prisma/adapter-libsql";
 import "dotenv/config";
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  throw new Error("DATABASE_URL environment variable is not set");
-}
+const url = process.env.DATABASE_URL;
+if (!url) throw new Error("DATABASE_URL environment variable is not set");
 
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
+const adapter = new PrismaLibSql({ url });
 const prisma = new PrismaClient({ adapter });
 
 const defaultCategories = [
@@ -277,6 +273,5 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await pool.end();
     await prisma.$disconnect();
   });
