@@ -9,6 +9,7 @@ import { DashboardContent } from "./dashboard-content";
 import { getIndexaPortfolioSummary, isIndexaConfigured } from "@/lib/server/indexa";
 import { getFinancialAssetsTotals } from "@/lib/server/alphavantage";
 import { getTangibleAssetsTotals } from "@/lib/server/assets";
+import { subWeeks, subMonths, subQuarters, subYears } from "date-fns";
 
 // Color palette for category chart
 const CATEGORY_COLORS = [
@@ -204,22 +205,34 @@ function calculateDashboardStats(data: Awaited<ReturnType<typeof getAllDashboard
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
+  // Determine if a recurring item has an occurrence in the given month.
+  // After advanceRecurringDueDates() runs, nextDueDate is always >= today,
+  // which means items whose due day already passed this month have been
+  // pushed to next month. We step back one frequency period to catch those.
+  function hasOccurrenceInMonth(frequency: string, nextDueDate: Date): boolean {
+    if (nextDueDate >= currentMonthStart && nextDueDate <= currentMonthEnd) return true;
+    if (nextDueDate > currentMonthEnd) {
+      let prev: Date;
+      switch (frequency) {
+        case "WEEKLY":     prev = subWeeks(nextDueDate, 1);   break;
+        case "BIWEEKLY":   prev = subWeeks(nextDueDate, 2);   break;
+        case "MONTHLY":    prev = subMonths(nextDueDate, 1);  break;
+        case "BIMONTHLY":  prev = subMonths(nextDueDate, 2);  break;
+        case "QUARTERLY":  prev = subQuarters(nextDueDate, 1); break;
+        case "YEARLY":     prev = subYears(nextDueDate, 1);   break;
+        default:           prev = subMonths(nextDueDate, 1);
+      }
+      return prev >= currentMonthStart && prev <= currentMonthEnd;
+    }
+    return false;
+  }
+
   const thisMonthRecurringExpenses = recurringExpenses
-    .filter(
-      (r) =>
-        r.type === "EXPENSE" &&
-        r.nextDueDate >= currentMonthStart &&
-        r.nextDueDate <= currentMonthEnd
-    )
+    .filter((r) => r.type === "EXPENSE" && hasOccurrenceInMonth(r.frequency, r.nextDueDate))
     .reduce((sum, r) => sum + r.amount.toNumber(), 0);
 
   const thisMonthRecurringIncome = recurringExpenses
-    .filter(
-      (r) =>
-        r.type === "INCOME" &&
-        r.nextDueDate >= currentMonthStart &&
-        r.nextDueDate <= currentMonthEnd
-    )
+    .filter((r) => r.type === "INCOME" && hasOccurrenceInMonth(r.frequency, r.nextDueDate))
     .reduce((sum, r) => sum + r.amount.toNumber(), 0);
 
   // Calculate total monthly budget (normalize all budgets to monthly)
