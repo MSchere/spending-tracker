@@ -351,13 +351,17 @@ function insertAll(table, rows, mapper) {
   const stmt = db.prepare(
     `INSERT OR IGNORE INTO "${table}" (${cols.map((c) => `"${c}"`).join(", ")}) VALUES (${placeholders})`
   );
-  const insertMany = db.transaction((items) => {
-    for (const row of items) {
+  db.exec("BEGIN");
+  try {
+    for (const row of rows) {
       const mapped = mapper(row);
       stmt.run(...Object.values(mapped));
     }
-  });
-  insertMany(rows);
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
 }
 
 // 1. User
