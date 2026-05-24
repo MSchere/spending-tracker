@@ -91,91 +91,127 @@ Visit [http://localhost:3000](http://localhost:3000)
 
 ## Deployment
 
-### 1. Build the application
+> **Note:** `prisma generate` requires downloading native engine binaries which are unavailable on some platforms (e.g. NixOS). Always **build on your dev machine** and deploy the compiled artifacts — never build on the production server.
+
+### 1. Build on dev
 
 ```bash
+git pull
 pnpm install
-pnpm db:generate
 pnpm build
-```
 
-### 2. Prepare standalone build
-
-```bash
+# Stage the standalone bundle
 cp -r .next/static .next/standalone/.next/
 cp -r public .next/standalone/
-cp -r prisma .next/standalone/
 ```
 
-### 3. Run migrations
+### 2. Deploy to server
 
 ```bash
-DATABASE_URL="file:./prisma/database.db" pnpm prisma migrate deploy
+rsync -av --delete .next/standalone/ user@your-server:/var/lib/spending-tracker/app/.next/standalone/
+ssh user@your-server "systemctl restart spending-tracker"
 ```
 
-### 4. Start the server
+Replace `user@your-server` with your actual SSH user and host/IP. Use `--rsync-path="sudo rsync"` if your user needs sudo to write to the target directory.
+
+### 3. Database
+
+The SQLite database lives outside the standalone bundle and persists across deploys. Set `DATABASE_URL` to an **absolute path** in your service environment so it resolves correctly regardless of the working directory:
+
+```env
+DATABASE_URL="file:/var/lib/spending-tracker/app/prisma/spending.db"
+```
+
+On first deploy, initialise the database on the server (Node 22+ required — uses the built-in `node:sqlite`):
 
 ```bash
-cd .next/standalone
-NODE_ENV=production node server.js
+# On the server — create schema using the Prisma migration SQL directly
+ssh user@your-server
+cd /var/lib/spending-tracker/app/.next/standalone
+node -e "
+  const {DatabaseSync} = require('node:sqlite');
+  const {readFileSync} = require('fs');
+  const db = new DatabaseSync(process.env.DATABASE_URL.replace('file:', ''));
+  db.exec(readFileSync('prisma/migrations/20260523165056_init/migration.sql', 'utf8'));
+  db.close();
+  console.log('Schema created.');
+"
 ```
 
-> **Database location**: The SQLite file is created at the path specified by `DATABASE_URL`. Make sure that directory is writable by the process and is included in your backup strategy.
+Then seed default categories:
+
+```bash
+# Back on dev
+pnpm db:seed
+```
+
+### NixOS
+
+The `nix/configuration.nix` module in this repo configures the full NixOS service. Key points:
+
+- The systemd service runs `node server.js` from `.next/standalone`
+- `DATABASE_URL` must be an absolute path (relative paths resolve against the working directory)
+- No Postgres dependency — remove `requires = ["postgresql.service"]` from the service unit
+- The database file and the standalone bundle are separate; rsync only touches the bundle
+
+```nix
+let
+  appDir = "/var/lib/spending-tracker/app";
+  dataDir = "/var/lib/spending-tracker";
+in {
+  systemd.services.spending-tracker = {
+    environment = {
+      DATABASE_URL = "file:${dataDir}/app/prisma/spending.db";
+      # ... other env vars
+    };
+    script = ''
+      cd ${appDir}/.next/standalone
+      exec ${pkgs.nodejs_24}/bin/node server.js
+    '';
+  };
+}
+```
+
+After updating the NixOS config: `sudo nixos-rebuild switch`.
 
 ## Migrating from PostgreSQL
 
-If you are upgrading from a previous version that used PostgreSQL, use the included migration script to copy all data to the new SQLite database.
+If you are upgrading from a previous version that used PostgreSQL, migration is a one-time manual step done from the dev machine.
 
-### Steps
-
-**1. Update your environment**
-
-Change `DATABASE_URL` in `.env` to a SQLite file path:
+**1. Update `DATABASE_URL` in `.env`** to a SQLite file path:
 
 ```env
-DATABASE_URL="file:./prisma/database.db"
+DATABASE_URL="file:./prisma/spending.db"
 ```
 
-**2. Create the SQLite schema**
+**2. Create the SQLite schema:**
 
 ```bash
 pnpm db:migrate
 ```
 
-**3. Run the migration script**
+**3. Copy all data from Postgres to SQLite using the built-in Node.js SQLite module and `pg`:**
 
-Provide the old PostgreSQL connection string via `PG_DATABASE_URL`:
+Write a quick script or use `psql` to export and re-import, handling the type conversions (BIGINT strings → Number, NUMERIC strings → TEXT, booleans → 0/1, timestamps → ISO strings). Insert tables in foreign-key order: Users → WiseProfiles → Categories → Transactions → etc.
 
-```bash
-PG_DATABASE_URL="postgresql://user:password@host:5432/spending_tracker" \
-  pnpm db:migrate-from-pg
-```
-
-The script copies every table in foreign-key-safe order, prints a live progress counter for large tables, and finishes with a full row-count summary. It is **idempotent** — safe to re-run if interrupted.
-
-**4. Verify and start**
-
-```bash
-pnpm dev   # or NODE_ENV=production node .next/standalone/server.js
-```
+**4. Deploy the new build** following the [Deployment](#deployment) section above.
 
 ## Available Scripts
 
-| Command                  | Description                                    |
-| ------------------------ | ---------------------------------------------- |
-| `pnpm dev`               | Start development server (Turbopack)           |
-| `pnpm build`             | Build for production                           |
-| `pnpm start`             | Start production server                        |
-| `pnpm lint`              | Run ESLint                                     |
-| `pnpm format`            | Format code with Prettier                      |
-| `pnpm format:check`      | Check formatting                               |
-| `pnpm typecheck`         | Run TypeScript type checking                   |
-| `pnpm db:generate`       | Generate Prisma client                         |
-| `pnpm db:migrate`        | Run database migrations (creates SQLite file)  |
-| `pnpm db:push`           | Push schema changes without a migration file   |
-| `pnpm db:studio`         | Open Prisma Studio                             |
-| `pnpm db:seed`           | Seed default categories                        |
-| `pnpm db:migrate-from-pg`| Migrate data from a PostgreSQL database        |
+| Command             | Description                                   |
+| ------------------- | --------------------------------------------- |
+| `pnpm dev`          | Start development server (Turbopack)          |
+| `pnpm build`        | Build for production                          |
+| `pnpm start`        | Start production server                       |
+| `pnpm lint`         | Run ESLint                                    |
+| `pnpm format`       | Format code with Prettier                     |
+| `pnpm format:check` | Check formatting                              |
+| `pnpm typecheck`    | Run TypeScript type checking                  |
+| `pnpm db:generate`  | Generate Prisma client                        |
+| `pnpm db:migrate`   | Run database migrations (creates SQLite file) |
+| `pnpm db:push`      | Push schema changes without a migration file  |
+| `pnpm db:studio`    | Open Prisma Studio                            |
+| `pnpm db:seed`      | Seed default categories                       |
 
 ## Project Structure
 
@@ -186,8 +222,7 @@ spending-tracker/
 ├── prisma/
 │   ├── schema.prisma           # Database schema (SQLite)
 │   ├── migrations/             # Prisma migration history
-│   ├── seed.ts                 # Default category seeder
-│   └── migrate-pg-to-sqlite.ts # PostgreSQL → SQLite migration script
+│   └── seed.ts                 # Default category seeder
 ├── src/
 │   ├── app/                    # Next.js App Router pages
 │   │   ├── (auth)/             # Auth pages (login, register, 2fa)
