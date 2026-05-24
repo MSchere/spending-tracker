@@ -303,7 +303,7 @@ function calculateCashFlowData(
   for (let i = 5; i >= 0; i--) {
     const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const startOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-    const endOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+    const endOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59, 999);
 
     // Filter transactions for this month
     const monthTransactions = transactions.filter(
