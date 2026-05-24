@@ -335,40 +335,32 @@ export async function getIndexaPortfolioHistory(
   const startDate = subDays(new Date(), days);
   const today = new Date();
 
-  // Get total net contributions across all active accounts (actual deposits)
-  // This matches what the summary card shows and avoids the instruments_cost
-  // double-counting issue when summing multiple accounts.
-  const accounts = await db.indexaAccount.findMany({
-    where: { userId, status: "active" },
-    select: { id: true, netContributions: true },
-  });
-  const totalNetContributions = accounts.reduce(
-    (sum, a) => sum + (a.netContributions?.toNumber() ?? 0),
-    0
-  );
-  const accountIds = accounts.map((a) => a.id);
-
-  if (accountIds.length === 0) return [];
-
-  // Get all snapshots for active accounts in the date range
+  // Get all snapshots for the user's active accounts only
+  // Filter: only snapshots with actual value AND not in the future
+  // Cancelled accounts are excluded from the chart
   const snapshots = await db.indexaPortfolioSnapshot.findMany({
     where: {
-      accountId: { in: accountIds },
+      account: {
+        userId,
+        status: "active", // Only active accounts
+      },
       date: {
         gte: startDate,
-        lte: today,
+        lte: today, // Don't include future dates
       },
-      totalValue: { gt: 0 },
+      totalValue: { gt: 0 }, // Only non-zero values
     },
     orderBy: { date: "asc" },
   });
 
-  // Group by date and sum portfolio values across accounts
+  // Group by date and aggregate
   const grouped = new Map<
     string,
     {
       date: Date;
       totalValue: number;
+      totalInvested: number;
+      returns: number;
     }
   >();
 
@@ -378,24 +370,22 @@ export async function getIndexaPortfolioHistory(
 
     if (existing) {
       existing.totalValue += snapshot.totalValue.toNumber();
+      existing.totalInvested += snapshot.totalInvested.toNumber();
+      existing.returns += snapshot.returns.toNumber();
     } else {
       grouped.set(dateKey, {
         date: snapshot.date,
         totalValue: snapshot.totalValue.toNumber(),
+        totalInvested: snapshot.totalInvested.toNumber(),
+        returns: snapshot.returns.toNumber(),
       });
     }
   }
 
-  // Use netContributions as the constant "amount invested" baseline.
-  // Returns = how much the portfolio has grown above actual deposits.
+  // Convert to array with calculated returns percent
   return Array.from(grouped.values()).map((point) => ({
     ...point,
-    totalInvested: totalNetContributions,
-    returns: point.totalValue - totalNetContributions,
-    returnsPercent:
-      totalNetContributions > 0
-        ? ((point.totalValue - totalNetContributions) / totalNetContributions) * 100
-        : 0,
+    returnsPercent: point.totalInvested > 0 ? (point.returns / point.totalInvested) * 100 : 0,
   }));
 }
 
