@@ -8,7 +8,8 @@ async function getTransactionsData(
   userId: string,
   page: number,
   typeFilter?: string,
-  categoryFilter?: string
+  categoryFilter?: string,
+  search?: string
 ) {
   // Get user's Wise profiles
   const userProfiles = await db.wiseProfile.findMany({
@@ -22,6 +23,7 @@ async function getTransactionsData(
     OR: Array<{ profileId: { in: string[] } } | { userId: string }>;
     type?: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT";
     categoryId?: string | null;
+    description?: { contains: string };
   };
 
   const where: WhereClause = {
@@ -34,6 +36,10 @@ async function getTransactionsData(
 
   if (categoryFilter && categoryFilter !== "all") {
     where.categoryId = categoryFilter === "uncategorized" ? null : categoryFilter;
+  }
+
+  if (search && search.trim()) {
+    where.description = { contains: search.trim() };
   }
 
   // Get total count for pagination
@@ -71,6 +77,7 @@ interface PageProps {
     page?: string;
     type?: string;
     category?: string;
+    search?: string;
   }>;
 }
 
@@ -85,9 +92,10 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const page = Math.max(1, parseInt(params.page || "1", 10));
   const typeFilter = params.type;
   const categoryFilter = params.category;
+  const search = params.search;
 
   const { transactions, categories, totalCount, totalPages, currentPage } =
-    await getTransactionsData(session.user.id, page, typeFilter, categoryFilter);
+    await getTransactionsData(session.user.id, page, typeFilter, categoryFilter, search);
 
   // Serialize for client component
   const serializedTransactions = transactions.map((t) => ({
@@ -131,6 +139,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
         initialFilters={{
           type: typeFilter || "all",
           category: categoryFilter || "all",
+          search: search || "",
         }}
       />
     </div>

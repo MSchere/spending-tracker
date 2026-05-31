@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -95,6 +95,7 @@ interface TransactionsListProps {
   initialFilters: {
     type: string;
     category: string;
+    search: string;
   };
 }
 
@@ -109,9 +110,10 @@ export function TransactionsList({
 }: TransactionsListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialFilters.search);
   const [typeFilter, setTypeFilter] = useState<string>(initialFilters.type);
   const [categoryFilter, setCategoryFilter] = useState<string>(initialFilters.category);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
@@ -139,6 +141,25 @@ export function TransactionsList({
     setNewTxCategoryId("");
   }
 
+  // Debounce search: update URL after 400ms of no typing
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (search.trim()) {
+        params.set("search", search.trim());
+      } else {
+        params.delete("search");
+      }
+      params.delete("page");
+      router.push(`/transactions?${params.toString()}`);
+    }, 400);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
   // Navigate with filters
   function updateFilters(updates: { page?: number; type?: string; category?: string }) {
     const params = new URLSearchParams(searchParams.toString());
@@ -157,7 +178,6 @@ export function TransactionsList({
       } else {
         params.set("type", updates.type);
       }
-      // Reset to page 1 when filter changes
       params.delete("page");
     }
 
@@ -167,24 +187,15 @@ export function TransactionsList({
       } else {
         params.set("category", updates.category);
       }
-      // Reset to page 1 when filter changes
       params.delete("page");
     }
 
     router.push(`/transactions?${params.toString()}`);
   }
 
-  // Client-side search and sort (within current page)
+  // Client-side sort only (search is now server-side)
   const filteredTransactions = useMemo(() => {
-    let result = [...transactions];
-
-    // Search filter (client-side, within current page)
-    if (search) {
-      const searchLower = search.toLowerCase();
-      result = result.filter((t) => t.description.toLowerCase().includes(searchLower));
-    }
-
-    // Sort (client-side, within current page)
+    const result = [...transactions];
     result.sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
@@ -200,9 +211,8 @@ export function TransactionsList({
       }
       return sortOrder === "asc" ? comparison : -comparison;
     });
-
     return result;
-  }, [transactions, search, sortField, sortOrder]);
+  }, [transactions, sortField, sortOrder]);
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
