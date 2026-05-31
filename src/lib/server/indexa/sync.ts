@@ -353,32 +353,40 @@ export async function getIndexaPortfolioHistory(
     orderBy: { date: "asc" },
   });
 
-  // Group by date and aggregate
-  const grouped = new Map<
-    string,
-    {
-      date: Date;
-      totalValue: number;
-      totalInvested: number;
-      returns: number;
-    }
-  >();
+  // Step 1: deduplicate per account per date.
+  // The migration stored dates as "...Z" while Prisma/libsql stores the same
+  // instant as "...+00:00". SQLite compares them as strings so both can exist
+  // simultaneously, bypassing the unique constraint. We take the latest row
+  // (snapshots are ordered asc, so last write wins) before summing.
+  const perAccount = new Map<string, Map<string, { date: Date; totalValue: number; totalInvested: number; returns: number }>>();
 
   for (const snapshot of snapshots) {
     const dateKey = snapshot.date.toISOString().split("T")[0];
-    const existing = grouped.get(dateKey);
+    if (!perAccount.has(snapshot.accountId)) {
+      perAccount.set(snapshot.accountId, new Map());
+    }
+    // Always overwrite — last row for this account+date wins
+    perAccount.get(snapshot.accountId)!.set(dateKey, {
+      date: snapshot.date,
+      totalValue: snapshot.totalValue.toNumber(),
+      totalInvested: snapshot.totalInvested.toNumber(),
+      returns: snapshot.returns.toNumber(),
+    });
+  }
 
-    if (existing) {
-      existing.totalValue += snapshot.totalValue.toNumber();
-      existing.totalInvested += snapshot.totalInvested.toNumber();
-      existing.returns += snapshot.returns.toNumber();
-    } else {
-      grouped.set(dateKey, {
-        date: snapshot.date,
-        totalValue: snapshot.totalValue.toNumber(),
-        totalInvested: snapshot.totalInvested.toNumber(),
-        returns: snapshot.returns.toNumber(),
-      });
+  // Step 2: sum deduplicated values across accounts per date
+  const grouped = new Map<string, { date: Date; totalValue: number; totalInvested: number; returns: number }>();
+
+  for (const accountDates of perAccount.values()) {
+    for (const [dateKey, values] of accountDates) {
+      const existing = grouped.get(dateKey);
+      if (existing) {
+        existing.totalValue += values.totalValue;
+        existing.totalInvested += values.totalInvested;
+        existing.returns += values.returns;
+      } else {
+        grouped.set(dateKey, { ...values });
+      }
     }
   }
 
