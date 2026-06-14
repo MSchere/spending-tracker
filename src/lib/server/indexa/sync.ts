@@ -335,19 +335,11 @@ export async function getIndexaPortfolioHistory(
   const startDate = subDays(new Date(), days);
   const today = new Date();
 
-  // Get total net contributions across all active accounts.
-  // netContributions = actual deposits - withdrawals, same value shown
-  // in the summary card. This is more accurate than totalInvested from
-  // snapshots (instrumentsCost + cashAmount), which tracks cost basis and
-  // diverges from actual deposits.
+  // Get active account IDs to filter snapshots
   const accounts = await db.indexaAccount.findMany({
     where: { userId, status: "active" },
-    select: { id: true, netContributions: true },
+    select: { id: true },
   });
-  const totalNetContributions = accounts.reduce(
-    (sum, a) => sum + (a.netContributions?.toNumber() ?? 0),
-    0
-  );
   const accountIds = accounts.map((a) => a.id);
 
   if (accountIds.length === 0) return [];
@@ -362,7 +354,7 @@ export async function getIndexaPortfolioHistory(
   });
 
   // Step 1: deduplicate per account per date (Z vs +00:00 format guard)
-  const perAccount = new Map<string, Map<string, { date: Date; totalValue: number }>>();
+  const perAccount = new Map<string, Map<string, { date: Date; totalValue: number; totalInvested: number; returns: number }>>();
 
   for (const snapshot of snapshots) {
     const dateKey = snapshot.date.toISOString().split("T")[0];
@@ -372,33 +364,31 @@ export async function getIndexaPortfolioHistory(
     perAccount.get(snapshot.accountId)!.set(dateKey, {
       date: snapshot.date,
       totalValue: snapshot.totalValue.toNumber(),
+      totalInvested: snapshot.totalInvested.toNumber(),
+      returns: snapshot.returns.toNumber(),
     });
   }
 
-  // Step 2: sum portfolio values across accounts per date
-  const grouped = new Map<string, { date: Date; totalValue: number }>();
+  // Step 2: sum deduplicated values across accounts per date
+  const grouped = new Map<string, { date: Date; totalValue: number; totalInvested: number; returns: number }>();
 
   for (const accountDates of perAccount.values()) {
     for (const [dateKey, values] of accountDates) {
       const existing = grouped.get(dateKey);
       if (existing) {
         existing.totalValue += values.totalValue;
+        existing.totalInvested += values.totalInvested;
+        existing.returns += values.returns;
       } else {
         grouped.set(dateKey, { ...values });
       }
     }
   }
 
-  // Step 3: attach constant netContributions as totalInvested for every point
-  // so the chart's "Amount Invested" line matches the summary card exactly
   return Array.from(grouped.values()).map((point) => ({
     ...point,
-    totalInvested: totalNetContributions,
-    returns: point.totalValue - totalNetContributions,
     returnsPercent:
-      totalNetContributions > 0
-        ? ((point.totalValue - totalNetContributions) / totalNetContributions) * 100
-        : 0,
+      point.totalInvested > 0 ? (point.returns / point.totalInvested) * 100 : 0,
   }));
 }
 
