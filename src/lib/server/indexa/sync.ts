@@ -111,7 +111,8 @@ export async function syncIndexaData(
         },
         update: {
           totalValue: new Decimal(portfolio.totalValue),
-          totalInvested: new Decimal(totalInvested),
+          // Preserve totalInvested from first capture — API returns current
+          // cost basis for all dates, so overwriting destroys historical data
           returns: new Decimal(returns),
           returnsPercent: new Decimal(returnsPercent),
         },
@@ -201,7 +202,8 @@ export async function syncIndexaData(
           },
           update: {
             totalValue: new Decimal(point.totalValue),
-            totalInvested: new Decimal(point.totalInvested),
+            // Preserve totalInvested from first capture — API returns current
+            // cost basis for all dates, so overwriting destroys historical data
             returns: new Decimal(point.returns),
             returnsPercent: new Decimal(point.returnsPercent),
           },
