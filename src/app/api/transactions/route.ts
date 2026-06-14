@@ -24,7 +24,6 @@ export async function POST(request: NextRequest) {
       categoryId?: string | null;
     };
 
-    // Validate required fields
     if (!type || amount === undefined || !description || !date) {
       return NextResponse.json(
         { error: "type, amount, description, and date are required" },
@@ -32,7 +31,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate type
     const validTypes: TransactionType[] = ["INCOME", "EXPENSE", "TRANSFER", "INVESTMENT"];
     if (!validTypes.includes(type as TransactionType)) {
       return NextResponse.json(
@@ -41,7 +39,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate category if provided
     if (categoryId) {
       const category = await db.category.findUnique({
         where: { id: categoryId },
@@ -51,7 +48,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // For manual transactions, use EUR as default and same value for amountEur
     const txCurrency = currency || "EUR";
     const amountValue = Math.abs(amount);
 
@@ -68,7 +64,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Fetch category name if exists
     let categoryName: string | null = null;
     if (transaction.categoryId) {
       const category = await db.category.findUnique({

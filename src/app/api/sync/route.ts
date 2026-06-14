@@ -19,7 +19,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if at least one data source is configured
     const wiseConfigured = !!process.env.WISE_API_TOKEN;
     const indexaConfigured = isIndexaConfigured();
     const alphaVantageConfigured = isAlphaVantageConfigured();
@@ -28,16 +27,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No data sources configured" }, { status: 500 });
     }
 
-    // Get sync mode from query params
     const searchParams = request.nextUrl.searchParams;
     const mode = (searchParams.get("mode") as SyncMode) || "light";
 
-    // Validate mode
     if (mode !== "light" && mode !== "full") {
       return NextResponse.json({ error: "Invalid mode. Use 'light' or 'full'" }, { status: 400 });
     }
 
-    // Perform unified sync
     const result = await syncAllData(session.user.id, mode);
 
     if (!result.success) {

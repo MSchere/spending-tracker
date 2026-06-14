@@ -51,7 +51,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if budget already exists for this category
     const existing = await db.budget.findFirst({
       where: {
         userId: session.user.id,
@@ -66,7 +65,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify category exists
     const category = await db.category.findUnique({
       where: { id: categoryId },
     });
@@ -78,7 +76,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create budget
     const budget = await db.budget.create({
       data: {
         userId: session.user.id,

@@ -124,7 +124,6 @@ export async function createTangibleAsset(
 ): Promise<TangibleAsset> {
   const categoryDefaults = CATEGORY_DEFAULTS[input.category];
 
-  // Use provided values or fall back to category defaults
   const depreciationMethod = input.depreciationMethod ?? categoryDefaults.method;
   const usefulLifeYears = input.usefulLifeYears ?? categoryDefaults.usefulLifeYears;
   const salvageValue =
@@ -166,7 +165,6 @@ export async function updateTangibleAsset(
   userId: string,
   input: UpdateTangibleAssetInput
 ): Promise<TangibleAsset | null> {
-  // First verify ownership
   const existing = await db.tangibleAsset.findFirst({
     where: { id, userId },
   });
@@ -195,7 +193,6 @@ export async function updateTangibleAsset(
  * Delete a tangible asset.
  */
 export async function deleteTangibleAsset(id: string, userId: string): Promise<boolean> {
-  // First verify ownership
   const existing = await db.tangibleAsset.findFirst({
     where: { id, userId },
   });

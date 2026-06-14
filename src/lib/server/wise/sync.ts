@@ -15,7 +15,6 @@ export type WiseSyncMode = "light" | "full";
 async function autoCategorize(description: string): Promise<string | null> {
   const searchText = description.toLowerCase();
 
-  // Get all category keywords
   const keywords = await db.categoryKeyword.findMany({
     include: { category: true },
   });
@@ -39,7 +38,6 @@ async function getExchangeRate(
 ): Promise<number> {
   if (fromCurrency === toCurrency) return 1;
 
-  // Check cache first (same day)
   const dateOnly = new Date(date.toISOString().split("T")[0]);
   const cached = await db.exchangeRate.findUnique({
     where: {
@@ -55,11 +53,9 @@ async function getExchangeRate(
     return cached.rate.toNumber();
   }
 
-  // Fetch from Wise API
   const client = getWiseClient();
   const rate = await client.getExchangeRate(fromCurrency, toCurrency);
 
-  // Cache the rate
   await db.exchangeRate.create({
     data: {
       fromCurrency,
@@ -162,10 +158,8 @@ async function processActivity(
   activity: WiseApiActivity,
   profileId: string
 ): Promise<{ created: boolean; id: string }> {
-  // Use activity ID as reference (it's unique)
   const refNumber = `activity-${activity.id}`;
 
-  // Check if already exists
   const existing = await db.transaction.findUnique({
     where: { wiseRefNumber: refNumber },
   });
@@ -174,12 +168,10 @@ async function processActivity(
     return { created: false, id: existing.id };
   }
 
-  // Only process completed activities
   if (activity.status !== "COMPLETED") {
     return { created: false, id: "" };
   }
 
-  // Parse the primary amount
   const parsedAmount = parseActivityAmount(activity.primaryAmount);
   if (!parsedAmount) {
     return { created: false, id: "" };
@@ -188,7 +180,6 @@ async function processActivity(
   const { value: amount, currency, isPositive } = parsedAmount;
   const date = new Date(activity.createdOn);
 
-  // Get EUR equivalent
   let amountEur = amount;
   if (currency !== "EUR") {
     try {
@@ -200,22 +191,17 @@ async function processActivity(
     }
   }
 
-  // Clean title for description (remove HTML tags)
   const description =
     activity.title.replace(/<[^>]*>/g, "").trim() || activity.description || "Unknown transaction";
 
-  // Auto-categorize
   const categoryId = await autoCategorize(description);
 
-  // Determine transaction type based on activity type and amount direction
   const type = determineTransactionType(activity.type, isPositive);
 
-  // Skip activities that don't represent real transactions (e.g., CARD_CHECK)
   if (type === null) {
     return { created: false, id: "" };
   }
 
-  // Create transaction
   const created = await db.transaction.create({
     data: {
       wiseRefNumber: refNumber,
@@ -263,7 +249,6 @@ export async function syncWiseData(
     const apiProfiles = await client.getProfiles();
 
     for (const apiProfile of apiProfiles) {
-      // Upsert profile in database
       const profile = await db.wiseProfile.upsert({
         where: { profileId: BigInt(apiProfile.id) },
         create: {
@@ -276,11 +261,9 @@ export async function syncWiseData(
         },
       });
 
-      // Get balances
       const apiBalances = await client.getBalances(apiProfile.id);
 
       for (const apiBalance of apiBalances) {
-        // Upsert balance
         await db.wiseBalance.upsert({
           where: { wiseBalanceId: BigInt(apiBalance.id) },
           create: {
@@ -296,15 +279,12 @@ export async function syncWiseData(
         balancesUpdated++;
       }
 
-      // Determine date range based on mode
       let startDate: Date;
       const endDate = new Date();
 
       if (mode === "full") {
-        // Full sync: Get all historical data (up to 10 years)
         startDate = subYears(endDate, 10);
       } else {
-        // Light sync: From last sync date or last 7 days if never synced
         if (profile.lastSyncAt) {
           startDate = profile.lastSyncAt;
         } else {
@@ -322,17 +302,14 @@ export async function syncWiseData(
           }
         }
       } catch {
-        // Activity API failed, continue with next profile
       }
 
-      // Update last sync time
       await db.wiseProfile.update({
         where: { id: profile.id },
         data: { lastSyncAt: new Date() },
       });
     }
 
-    // Log successful sync
     await db.syncLog.create({
       data: {
         status: "SUCCESS",
@@ -340,7 +317,6 @@ export async function syncWiseData(
       },
     });
 
-    // Update app settings
     await db.appSettings.upsert({
       where: { id: "settings" },
       create: { lastSyncAt: new Date() },
@@ -356,7 +332,6 @@ export async function syncWiseData(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
-    // Log failed sync
     await db.syncLog.create({
       data: {
         status: "FAILED",

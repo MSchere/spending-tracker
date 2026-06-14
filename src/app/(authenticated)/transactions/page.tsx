@@ -11,14 +11,12 @@ async function getTransactionsData(
   categoryFilter?: string,
   search?: string
 ) {
-  // Get user's Wise profiles
   const userProfiles = await db.wiseProfile.findMany({
     where: { userId },
     select: { id: true },
   });
   const profileIds = userProfiles.map((p) => p.id);
 
-  // Build where clause - include both Wise transactions and manual transactions
   type WhereClause = {
     OR: Array<{ profileId: { in: string[] } } | { userId: string }>;
     type?: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT";

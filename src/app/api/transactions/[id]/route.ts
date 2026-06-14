@@ -22,7 +22,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       keyword?: string;
     };
 
-    // Verify the transaction belongs to the user
     const transaction = await db.transaction.findUnique({
       where: { id },
       include: {
@@ -34,14 +33,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
     }
 
-    // Check ownership - either manual transaction (userId) or Wise transaction (profile.userId)
     const isOwner =
       transaction.userId === session.user.id || transaction.profile?.userId === session.user.id;
     if (!isOwner) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    // Validate category if provided
     if (categoryId) {
       const category = await db.category.findUnique({
         where: { id: categoryId },
@@ -52,7 +49,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
-    // Get user's profile IDs for scoping bulk updates
     const userProfiles = await db.wiseProfile.findMany({
       where: { userId: session.user.id },
       select: { id: true },
@@ -62,7 +58,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     let updatedCount = 1;
 
     if (applyToSimilar && keyword && keyword.trim()) {
-      // Bulk update all transactions matching the keyword
       const keywordLower = keyword.toLowerCase().trim();
 
       const result = await db.transaction.updateMany({
@@ -79,7 +74,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
       updatedCount = result.count;
 
-      // Save the keyword for future auto-categorization
       if (categoryId) {
         await db.categoryKeyword.upsert({
           where: {
@@ -96,7 +90,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         });
       }
     } else {
-      // Update only this transaction
       await db.transaction.update({
         where: { id },
         data: {

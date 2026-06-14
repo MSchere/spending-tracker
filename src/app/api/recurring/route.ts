@@ -48,7 +48,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate type
     const validTypes: RecurringType[] = ["EXPENSE", "INCOME"];
     const recurringType = type && validTypes.includes(type) ? type : "EXPENSE";
 

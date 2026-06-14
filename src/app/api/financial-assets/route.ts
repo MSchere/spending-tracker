@@ -51,7 +51,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { symbol, name, type, shares, avgCostBasis, currency } = body;
 
-    // Validate required fields
     if (!symbol || !name || !type || shares === undefined || avgCostBasis === undefined) {
       return NextResponse.json(
         { error: "symbol, name, type, shares, and avgCostBasis are required" },
@@ -59,7 +58,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate type
     if (!VALID_TYPES.includes(type)) {
       return NextResponse.json(
         { error: `Invalid type. Must be one of: ${VALID_TYPES.join(", ")}` },
@@ -67,7 +65,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if asset already exists
     const existing = await getFinancialAssetBySymbol(
       session.user.id,
       symbol,
@@ -81,7 +78,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Resolve currency: use body value, or fall back to user's preferred currency
     const preferences = await db.userPreferences.findUnique({
       where: { userId: session.user.id },
       select: { currency: true },
@@ -98,7 +94,6 @@ export async function POST(request: NextRequest) {
       currency: resolvedCurrency,
     });
 
-    // Try to fetch initial price (non-blocking, don't fail if it errors)
     if (isAlphaVantageConfigured()) {
       try {
         const client = getAlphaVantageClient();
@@ -114,7 +109,6 @@ export async function POST(request: NextRequest) {
 
         await updateAssetPrice(asset.id, price, asset.currency);
       } catch (priceError) {
-        // Log but don't fail - asset was created successfully
         console.warn(`Failed to fetch initial price for ${symbol}:`, priceError);
       }
     }

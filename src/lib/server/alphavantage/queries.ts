@@ -75,8 +75,6 @@ export async function getFinancialAssets(userId: string): Promise<FinancialAsset
     const gainLoss = currentValue - totalCost;
     const gainLossPercent = totalCost > 0 ? (gainLoss / totalCost) * 100 : 0;
 
-    // Return plain object with all Decimals converted to numbers
-    // and Dates converted to ISO strings for serialization
     return {
       id: asset.id,
       userId: asset.userId,
@@ -177,7 +175,6 @@ export async function updateFinancialAsset(
   userId: string,
   input: UpdateFinancialAssetInput
 ): Promise<FinancialAsset | null> {
-  // Verify ownership
   const existing = await prisma.financialAsset.findFirst({
     where: { id, userId },
   });
@@ -207,7 +204,6 @@ export async function updateFinancialAsset(
  * Delete a financial asset
  */
 export async function deleteFinancialAsset(id: string, userId: string): Promise<boolean> {
-  // Verify ownership
   const existing = await prisma.financialAsset.findFirst({
     where: { id, userId },
   });
@@ -231,24 +227,20 @@ export async function updateAssetPrice(
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  // Build update data
   const updateData: { lastPrice: Decimal; lastPriceAt: Date; currency?: Currency } = {
     lastPrice: new Decimal(price),
     lastPriceAt: now,
   };
 
-  // Update currency if provided
   if (currency) {
     updateData.currency = currency;
   }
 
-  // Update the asset's lastPrice
   const asset = await prisma.financialAsset.update({
     where: { id },
     data: updateData,
   });
 
-  // Also store in price history (upsert to avoid duplicates for today)
   await prisma.financialAssetPrice.upsert({
     where: {
       assetId_date: { assetId: id, date: today },
@@ -299,7 +291,6 @@ export async function syncFinancialAssetPrices(
   let updated = 0;
   const errors: string[] = [];
 
-  // Process assets sequentially to respect rate limits
   for (const asset of assets) {
     try {
       let price: number;
@@ -308,7 +299,6 @@ export async function syncFinancialAssetPrices(
         const quote = await client.getCryptoQuote(asset.symbol, asset.currency);
         price = quote.price;
       } else {
-        // STOCK or ETF
         const quote = await client.getStockQuote(asset.symbol, asset.currency);
         price = quote.price;
       }
@@ -319,7 +309,6 @@ export async function syncFinancialAssetPrices(
       const message = error instanceof Error ? error.message : "Unknown error";
       errors.push(`${asset.symbol}: ${message}`);
 
-      // If rate limited, stop processing
       if (message.includes("Rate limit") || message.includes("rate limit")) {
         errors.push("Rate limit reached - remaining assets skipped");
         break;

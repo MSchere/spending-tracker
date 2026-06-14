@@ -117,14 +117,12 @@ export function TransactionsList({
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
-  // Edit dialog state
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [applyToSimilar, setApplyToSimilar] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Add transaction dialog state
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newTxType, setNewTxType] = useState<"INCOME" | "EXPENSE">("EXPENSE");
@@ -160,7 +158,6 @@ export function TransactionsList({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
-  // Navigate with filters
   function updateFilters(updates: { page?: number; type?: string; category?: string }) {
     const params = new URLSearchParams(searchParams.toString());
 
@@ -193,7 +190,6 @@ export function TransactionsList({
     router.push(`/transactions?${params.toString()}`);
   }
 
-  // Client-side sort only (search is now server-side)
   const filteredTransactions = useMemo(() => {
     const result = [...transactions];
     result.sort((a, b) => {
@@ -227,7 +223,6 @@ export function TransactionsList({
     setEditingTransaction(transaction);
     setSelectedCategoryId(transaction.categoryId || "none");
     setApplyToSimilar(false);
-    // Pre-fill keyword with the transaction description
     setKeyword(transaction.description);
   }
 
