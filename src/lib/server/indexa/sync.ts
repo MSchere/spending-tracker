@@ -335,65 +335,70 @@ export async function getIndexaPortfolioHistory(
   const startDate = subDays(new Date(), days);
   const today = new Date();
 
-  // Get all snapshots for the user's active accounts only
-  // Filter: only snapshots with actual value AND not in the future
-  // Cancelled accounts are excluded from the chart
+  // Get total net contributions across all active accounts.
+  // netContributions = actual deposits - withdrawals, same value shown
+  // in the summary card. This is more accurate than totalInvested from
+  // snapshots (instrumentsCost + cashAmount), which tracks cost basis and
+  // diverges from actual deposits.
+  const accounts = await db.indexaAccount.findMany({
+    where: { userId, status: "active" },
+    select: { id: true, netContributions: true },
+  });
+  const totalNetContributions = accounts.reduce(
+    (sum, a) => sum + (a.netContributions?.toNumber() ?? 0),
+    0
+  );
+  const accountIds = accounts.map((a) => a.id);
+
+  if (accountIds.length === 0) return [];
+
   const snapshots = await db.indexaPortfolioSnapshot.findMany({
     where: {
-      account: {
-        userId,
-        status: "active", // Only active accounts
-      },
-      date: {
-        gte: startDate,
-        lte: today, // Don't include future dates
-      },
-      totalValue: { gt: 0 }, // Only non-zero values
+      accountId: { in: accountIds },
+      date: { gte: startDate, lte: today },
+      totalValue: { gt: 0 },
     },
     orderBy: { date: "asc" },
   });
 
-  // Step 1: deduplicate per account per date.
-  // The migration stored dates as "...Z" while Prisma/libsql stores the same
-  // instant as "...+00:00". SQLite compares them as strings so both can exist
-  // simultaneously, bypassing the unique constraint. We take the latest row
-  // (snapshots are ordered asc, so last write wins) before summing.
-  const perAccount = new Map<string, Map<string, { date: Date; totalValue: number; totalInvested: number; returns: number }>>();
+  // Step 1: deduplicate per account per date (Z vs +00:00 format guard)
+  const perAccount = new Map<string, Map<string, { date: Date; totalValue: number }>>();
 
   for (const snapshot of snapshots) {
     const dateKey = snapshot.date.toISOString().split("T")[0];
     if (!perAccount.has(snapshot.accountId)) {
       perAccount.set(snapshot.accountId, new Map());
     }
-    // Always overwrite — last row for this account+date wins
     perAccount.get(snapshot.accountId)!.set(dateKey, {
       date: snapshot.date,
       totalValue: snapshot.totalValue.toNumber(),
-      totalInvested: snapshot.totalInvested.toNumber(),
-      returns: snapshot.returns.toNumber(),
     });
   }
 
-  // Step 2: sum deduplicated values across accounts per date
-  const grouped = new Map<string, { date: Date; totalValue: number; totalInvested: number; returns: number }>();
+  // Step 2: sum portfolio values across accounts per date
+  const grouped = new Map<string, { date: Date; totalValue: number }>();
 
   for (const accountDates of perAccount.values()) {
     for (const [dateKey, values] of accountDates) {
       const existing = grouped.get(dateKey);
       if (existing) {
         existing.totalValue += values.totalValue;
-        existing.totalInvested += values.totalInvested;
-        existing.returns += values.returns;
       } else {
         grouped.set(dateKey, { ...values });
       }
     }
   }
 
-  // Convert to array with calculated returns percent
+  // Step 3: attach constant netContributions as totalInvested for every point
+  // so the chart's "Amount Invested" line matches the summary card exactly
   return Array.from(grouped.values()).map((point) => ({
     ...point,
-    returnsPercent: point.totalInvested > 0 ? (point.returns / point.totalInvested) * 100 : 0,
+    totalInvested: totalNetContributions,
+    returns: point.totalValue - totalNetContributions,
+    returnsPercent:
+      totalNetContributions > 0
+        ? ((point.totalValue - totalNetContributions) / totalNetContributions) * 100
+        : 0,
   }));
 }
 
