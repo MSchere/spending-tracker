@@ -48,12 +48,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { shares, avgCostBasis, name } = body;
+    const { shares, avgCostBasis, name, isin } = body;
 
     // At least one field must be provided
-    if (shares === undefined && avgCostBasis === undefined && name === undefined) {
+    if (
+      shares === undefined &&
+      avgCostBasis === undefined &&
+      name === undefined &&
+      isin === undefined
+    ) {
       return NextResponse.json(
-        { error: "At least one of shares, avgCostBasis, or name is required" },
+        { error: "At least one of shares, avgCostBasis, name, or isin is required" },
         { status: 400 }
       );
     }
@@ -62,9 +67,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       shares: shares !== undefined ? Number(shares) : undefined,
       avgCostBasis: avgCostBasis !== undefined ? Number(avgCostBasis) : undefined,
       name,
+      isin,
     });
 
     if (!asset) {
+      const existing = await getFinancialAssetById(id, session.user.id);
+      if (existing) {
+        return NextResponse.json(
+          { error: "Synced assets are managed by their integration and cannot be edited" },
+          { status: 403 }
+        );
+      }
       return NextResponse.json({ error: "Asset not found" }, { status: 404 });
     }
 
@@ -90,6 +103,13 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     const deleted = await deleteFinancialAsset(id, session.user.id);
 
     if (!deleted) {
+      const existing = await getFinancialAssetById(id, session.user.id);
+      if (existing) {
+        return NextResponse.json(
+          { error: "Synced assets are managed by their integration and cannot be deleted" },
+          { status: 403 }
+        );
+      }
       return NextResponse.json({ error: "Asset not found" }, { status: 404 });
     }
 

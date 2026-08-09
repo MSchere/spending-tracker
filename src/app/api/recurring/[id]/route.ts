@@ -23,10 +23,7 @@ export async function DELETE(
     });
 
     if (!expense) {
-      return NextResponse.json(
-        { error: "Recurring expense not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Recurring expense not found" }, { status: 404 });
     }
 
     await db.recurringExpense.delete({ where: { id } });
@@ -34,9 +31,6 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete recurring expense error:", error);
-    return NextResponse.json(
-      { error: "Failed to delete recurring expense" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to delete recurring expense" }, { status: 500 });
   }
 }

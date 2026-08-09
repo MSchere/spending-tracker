@@ -1,5 +1,5 @@
 allowBuilds:
-  '@prisma/engines': true
+  "@prisma/engines": true
   bcrypt: true
   esbuild: true
   prisma: true
@@ -7,10 +7,12 @@ allowBuilds:
   unrs-resolver: true
 onlyBuiltDependencies:
   - bcrypt
-  - '@prisma/engines'
+  - "@prisma/engines"
   - prisma
-  - '@prisma/client'
+  - "@prisma/client"
   - esbuild
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+minimumReleaseAgeExclude:
+  - sonner@2.0.8

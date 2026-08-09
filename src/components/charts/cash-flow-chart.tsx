@@ -37,14 +37,14 @@ export function CashFlowChart({ data }: CashFlowChartProps) {
 
   if (data.length === 0) {
     return (
-      <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+      <div className="flex h-75 items-center justify-center text-muted-foreground">
         No data available
       </div>
     );
   }
 
   return (
-    <ChartContainer config={chartConfig} className="h-[300px] w-full">
+    <ChartContainer config={chartConfig} className="h-75 w-full">
       <BarChart data={data} accessibilityLayer>
         <CartesianGrid vertical={false} />
         <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />

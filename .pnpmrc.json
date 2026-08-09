@@ -1,1 +1,1 @@
-{"onlyBuiltDependencies": ["bcrypt", "@prisma/engines", "prisma", "@prisma/client"]}
+{ "onlyBuiltDependencies": ["bcrypt", "@prisma/engines", "prisma", "@prisma/client"] }

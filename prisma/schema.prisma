@@ -29,14 +29,14 @@ enum Currency {
 // ============================================================================
 
 model User {
-  id               String    @id @default(cuid())
-  email            String    @unique
-  password         String    // bcrypt hashed
+  id               String   @id @default(cuid())
+  email            String   @unique
+  password         String // bcrypt hashed
   name             String?
-  twoFactorSecret  String?   // Encrypted TOTP secret
-  twoFactorEnabled Boolean   @default(false)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  twoFactorSecret  String? // Encrypted TOTP secret
+  twoFactorEnabled Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   wiseProfiles       WiseProfile[]
   budgets            Budget[]
@@ -45,7 +45,7 @@ model User {
   tangibleAssets     TangibleAsset[]
   financialAssets    FinancialAsset[]
   preferences        UserPreferences?
-  manualTransactions Transaction[]    // Manual transactions (not from Wise)
+  manualTransactions Transaction[] // Manual transactions (not from Wise)
 }
 
 model UserPreferences {
@@ -80,7 +80,7 @@ model WiseBalance {
   id            String   @id @default(cuid())
   wiseBalanceId BigInt   @unique // Wise balance ID
   profileId     String
-  currency      String   // ISO currency code (from Wise API, may include currencies we don't support)
+  currency      String // ISO currency code (from Wise API, may include currencies we don't support)
   amount        Decimal
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -95,12 +95,12 @@ model WiseBalance {
 model Transaction {
   id                 String          @id @default(cuid())
   wiseRefNumber      String?         @unique // Wise reference for dedup (null for manual)
-  profileId          String?         // Wise profile (null for manual transactions)
-  userId             String?         // User ID for manual transactions
+  profileId          String? // Wise profile (null for manual transactions)
+  userId             String? // User ID for manual transactions
   type               TransactionType
   amount             Decimal
-  currency           String          // Original currency from source
-  amountEur          Decimal         // Converted to EUR
+  currency           String // Original currency from source
+  amountEur          Decimal // Converted to EUR
   description        String?
   date               DateTime
   categoryId         String?
@@ -244,8 +244,8 @@ enum RecurringFrequency {
 
 model ExchangeRate {
   id           String   @id @default(cuid())
-  fromCurrency String   // ISO currency code (may include external currencies)
-  toCurrency   String   // ISO currency code (may include external currencies)
+  fromCurrency String // ISO currency code (may include external currencies)
+  toCurrency   String // ISO currency code (may include external currencies)
   rate         Decimal
   date         DateTime
   createdAt    DateTime @default(now())
@@ -283,10 +283,10 @@ model IndexaAccount {
   id               String    @id @default(cuid())
   userId           String
   accountNumber    String    @unique // e.g., "PBKLBYZ5"
-  accountType      String             // "mutual" or "pension"
-  status           String             // "active", etc.
-  riskLevel        Int?               // 1-10
-  netContributions Decimal?           // Total deposits - withdrawals (Aportaciones)
+  accountType      String // "mutual" or "pension"
+  status           String // "active", etc.
+  riskLevel        Int? // 1-10
+  netContributions Decimal? // Total deposits - withdrawals (Aportaciones)
   lastSyncAt       DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -299,29 +299,15 @@ model IndexaPortfolioSnapshot {
   id             String   @id @default(cuid())
   accountId      String
   date           DateTime
-  totalValue     Decimal  // Current portfolio value
-  totalInvested  Decimal  // Amount contributed
-  returns        Decimal  // Profit/loss in EUR
-  returnsPercent Decimal  // Return percentage
+  totalValue     Decimal // Current portfolio value
+  totalInvested  Decimal // Amount contributed
+  returns        Decimal // Profit/loss in EUR
+  returnsPercent Decimal // Return percentage
   createdAt      DateTime @default(now())
 
-  account  IndexaAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  holdings IndexaHolding[]
+  account IndexaAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@unique([accountId, date])
-}
-
-model IndexaHolding {
-  id             String  @id @default(cuid())
-  snapshotId     String
-  instrumentName String  // "Vanguard Global Stock", etc.
-  instrumentType String  // "Stocks", "Bonds", "Cash", etc.
-  isin           String?
-  shares         Decimal
-  value          Decimal
-  weight         Decimal // Portfolio percentage
-
-  snapshot IndexaPortfolioSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
 }
 
 // ============================================================================
@@ -339,23 +325,23 @@ enum TangibleAssetCategory {
 }
 
 enum DepreciationMethod {
-  STRAIGHT_LINE     // Linear: (Cost - Salvage) / Useful Life per year
+  STRAIGHT_LINE // Linear: (Cost - Salvage) / Useful Life per year
   DECLINING_BALANCE // Accelerated: Fixed % of remaining value per year
-  NONE              // No depreciation (real estate, collectibles)
+  NONE // No depreciation (real estate, collectibles)
 }
 
 model TangibleAsset {
   id                 String                @id @default(cuid())
   userId             String
-  name               String                // "2015 Peugeot 308"
+  name               String // "2015 Peugeot 308"
   description        String?
   category           TangibleAssetCategory
   purchaseDate       DateTime
   purchasePrice      Decimal
   currency           Currency              @default(EUR)
   depreciationMethod DepreciationMethod    @default(STRAIGHT_LINE)
-  usefulLifeYears    Int?                  // For automatic depreciation
-  salvageValue       Decimal?              // Residual value at end of life
+  usefulLifeYears    Int? // For automatic depreciation
+  salvageValue       Decimal? // Residual value at end of life
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
 
@@ -372,26 +358,37 @@ enum FinancialAssetType {
   STOCK
   CRYPTO
   ETF
+  FUND
+  CASH // Cash positions held inside investment accounts (e.g. Indexa cash buffer)
+}
+
+enum AssetSource {
+  MANUAL // Manually entered by the user
+  INDEXA // Synced from Indexa Capital
+  IBKR // Synced from Interactive Brokers
 }
 
 model FinancialAsset {
-  id            String             @id @default(cuid())
-  userId        String
-  symbol        String             // "AAPL", "BTC", "VOO"
-  name          String             // "Apple Inc.", "Bitcoin", "Vanguard S&P 500 ETF"
-  type          FinancialAssetType
-  shares        Decimal            // Supports fractional shares & crypto
-  avgCostBasis  Decimal            // Average cost per share/unit
-  currency      Currency           @default(USD) // Price currency
-  lastPrice     Decimal?           // Latest price from API
-  lastPriceAt   DateTime?          // When price was last updated
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  id           String             @id @default(cuid())
+  userId       String
+  ticker       String // "AAPL", "BTC", "VOO"; ISIN for Indexa funds (no ticker)
+  isin         String? // Optional ISIN for stocks/ETFs/funds
+  name         String // "Apple Inc.", "Bitcoin", "Vanguard S&P 500 ETF"
+  type         FinancialAssetType
+  source       AssetSource        @default(MANUAL)
+  externalId   String? // ID at the source (e.g. IBKR conid); null for manual assets
+  shares       Decimal // Supports fractional shares & crypto
+  avgCostBasis Decimal? // Average cost per share/unit (null when unknown, e.g. Indexa funds)
+  currency     Currency           @default(USD) // Price currency
+  lastPrice    Decimal? // Latest price from API
+  lastPriceAt  DateTime? // When price was last updated
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
   user   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   prices FinancialAssetPrice[]
 
-  @@unique([userId, symbol, type])
+  @@unique([userId, source, ticker, type])
   @@index([userId])
 }
 

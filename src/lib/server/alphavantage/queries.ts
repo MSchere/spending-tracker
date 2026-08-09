@@ -3,6 +3,7 @@ import type {
   FinancialAsset,
   FinancialAssetPrice,
   FinancialAssetType,
+  AssetSource,
   Currency,
 } from "@prisma/client";
 import { Decimal } from "decimal.js";
@@ -18,34 +19,38 @@ export interface FinancialAssetWithPrices extends FinancialAsset {
 export interface FinancialAssetSummary {
   id: string;
   userId: string;
-  symbol: string;
+  ticker: string;
+  isin: string | null;
   name: string;
   type: FinancialAssetType;
+  source: AssetSource;
+  externalId: string | null;
   shares: number;
-  avgCostBasis: number;
+  avgCostBasis: number | null; // null when unknown (e.g. Indexa funds)
   currency: string;
   lastPrice: number | null;
   lastPriceAt: string | null; // ISO string for serialization
   createdAt: string;
   updatedAt: string;
-  // Calculated fields
+  // Calculated fields (null when cost basis is unknown)
   currentValue: number;
-  totalCost: number;
-  gainLoss: number;
-  gainLossPercent: number;
+  totalCost: number | null;
+  gainLoss: number | null;
+  gainLossPercent: number | null;
 }
 
 export interface FinancialAssetsTotals {
   totalValue: number;
-  totalCost: number;
-  totalGainLoss: number;
-  totalGainLossPercent: number;
+  totalCost: number | null; // null if any asset lacks a cost basis
+  totalGainLoss: number | null;
+  totalGainLossPercent: number | null;
   assetCount: number;
 }
 
 export interface CreateFinancialAssetInput {
   userId: string;
-  symbol: string;
+  ticker: string;
+  isin?: string;
   name: string;
   type: FinancialAssetType;
   shares: number;
@@ -57,55 +62,70 @@ export interface UpdateFinancialAssetInput {
   shares?: number;
   avgCostBasis?: number;
   name?: string;
+  isin?: string;
 }
 
-export async function getFinancialAssets(userId: string): Promise<FinancialAssetSummary[]> {
+export function toFinancialAssetSummary(asset: FinancialAsset): FinancialAssetSummary {
+  const shares = Number(asset.shares);
+  const avgCostBasis = asset.avgCostBasis != null ? Number(asset.avgCostBasis) : null;
+  const lastPrice = asset.lastPrice ? Number(asset.lastPrice) : avgCostBasis;
+
+  const currentValue = lastPrice != null ? shares * lastPrice : 0;
+  const totalCost = avgCostBasis != null ? shares * avgCostBasis : null;
+  const gainLoss = totalCost != null ? currentValue - totalCost : null;
+  const gainLossPercent =
+    totalCost != null && totalCost > 0 ? ((currentValue - totalCost) / totalCost) * 100 : null;
+
+  return {
+    id: asset.id,
+    userId: asset.userId,
+    ticker: asset.ticker,
+    isin: asset.isin,
+    name: asset.name,
+    type: asset.type,
+    source: asset.source,
+    externalId: asset.externalId,
+    shares,
+    avgCostBasis,
+    currency: asset.currency,
+    lastPrice: asset.lastPrice ? Number(asset.lastPrice) : null,
+    lastPriceAt: asset.lastPriceAt?.toISOString() ?? null,
+    createdAt: asset.createdAt.toISOString(),
+    updatedAt: asset.updatedAt.toISOString(),
+    currentValue,
+    totalCost,
+    gainLoss,
+    gainLossPercent,
+  };
+}
+
+export async function getFinancialAssets(
+  userId: string,
+  options: { source?: AssetSource } = {}
+): Promise<FinancialAssetSummary[]> {
   const assets = await prisma.financialAsset.findMany({
-    where: { userId },
-    orderBy: [{ type: "asc" }, { symbol: "asc" }],
+    where: { userId, ...(options.source ? { source: options.source } : {}) },
+    orderBy: [{ type: "asc" }, { ticker: "asc" }],
   });
 
-  return assets.map((asset) => {
-    const shares = Number(asset.shares);
-    const avgCostBasis = Number(asset.avgCostBasis);
-    const lastPrice = asset.lastPrice ? Number(asset.lastPrice) : avgCostBasis;
-
-    const currentValue = shares * lastPrice;
-    const totalCost = shares * avgCostBasis;
-    const gainLoss = currentValue - totalCost;
-    const gainLossPercent = totalCost > 0 ? (gainLoss / totalCost) * 100 : 0;
-
-    return {
-      id: asset.id,
-      userId: asset.userId,
-      symbol: asset.symbol,
-      name: asset.name,
-      type: asset.type,
-      shares,
-      avgCostBasis,
-      currency: asset.currency,
-      lastPrice: asset.lastPrice ? Number(asset.lastPrice) : null,
-      lastPriceAt: asset.lastPriceAt?.toISOString() ?? null,
-      createdAt: asset.createdAt.toISOString(),
-      updatedAt: asset.updatedAt.toISOString(),
-      currentValue,
-      totalCost,
-      gainLoss,
-      gainLossPercent,
-    };
-  });
+  return assets.map(toFinancialAssetSummary);
 }
 
 /**
- * Get financial assets totals for a user
+ * Get financial assets totals for a user.
+ * Cost/gain-loss are null when at least one held asset lacks a cost basis.
  */
 export async function getFinancialAssetsTotals(userId: string): Promise<FinancialAssetsTotals> {
   const assets = await getFinancialAssets(userId);
 
   const totalValue = assets.reduce((sum, a) => sum + a.currentValue, 0);
-  const totalCost = assets.reduce((sum, a) => sum + a.totalCost, 0);
-  const totalGainLoss = totalValue - totalCost;
-  const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
+  const hasFullCostBasis = assets.every((a) => a.totalCost != null);
+  const totalCost = hasFullCostBasis
+    ? assets.reduce((sum, a) => sum + (a.totalCost ?? 0), 0)
+    : null;
+  const totalGainLoss = totalCost != null ? totalValue - totalCost : null;
+  const totalGainLossPercent =
+    totalCost != null && totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : null;
 
   return {
     totalValue,
@@ -135,16 +155,22 @@ export async function getFinancialAssetById(
 }
 
 /**
- * Get a financial asset by symbol and type
+ * Get a financial asset by ticker, type and source
  */
-export async function getFinancialAssetBySymbol(
+export async function getFinancialAssetByTicker(
   userId: string,
-  symbol: string,
-  type: FinancialAssetType
+  ticker: string,
+  type: FinancialAssetType,
+  source: AssetSource = "MANUAL"
 ): Promise<FinancialAsset | null> {
   return prisma.financialAsset.findUnique({
     where: {
-      userId_symbol_type: { userId, symbol: symbol.toUpperCase(), type },
+      userId_source_ticker_type: {
+        userId,
+        source,
+        ticker: ticker.toUpperCase(),
+        type,
+      },
     },
   });
 }
@@ -152,14 +178,16 @@ export async function getFinancialAssetBySymbol(
 export async function createFinancialAsset(
   input: CreateFinancialAssetInput
 ): Promise<FinancialAsset> {
-  const { userId, symbol, name, type, shares, avgCostBasis, currency } = input;
+  const { userId, ticker, isin, name, type, shares, avgCostBasis, currency } = input;
 
   return prisma.financialAsset.create({
     data: {
       userId,
-      symbol: symbol.toUpperCase(),
+      ticker: ticker.toUpperCase(),
+      isin: isin?.toUpperCase() || null,
       name,
       type,
+      source: "MANUAL",
       shares: new Decimal(shares),
       avgCostBasis: new Decimal(avgCostBasis),
       currency: (currency as Currency) || "USD",
@@ -168,7 +196,8 @@ export async function createFinancialAsset(
 }
 
 /**
- * Update an existing financial asset
+ * Update an existing financial asset.
+ * Only manual assets are editable; synced (INDEXA/IBKR) assets are managed by their syncs.
  */
 export async function updateFinancialAsset(
   id: string,
@@ -176,7 +205,7 @@ export async function updateFinancialAsset(
   input: UpdateFinancialAssetInput
 ): Promise<FinancialAsset | null> {
   const existing = await prisma.financialAsset.findFirst({
-    where: { id, userId },
+    where: { id, userId, source: "MANUAL" },
   });
 
   if (!existing) {
@@ -193,6 +222,9 @@ export async function updateFinancialAsset(
   if (input.name !== undefined) {
     data.name = input.name;
   }
+  if (input.isin !== undefined) {
+    data.isin = input.isin ? input.isin.toUpperCase() : null;
+  }
 
   return prisma.financialAsset.update({
     where: { id },
@@ -201,11 +233,12 @@ export async function updateFinancialAsset(
 }
 
 /**
- * Delete a financial asset
+ * Delete a financial asset. Only manual assets can be deleted;
+ * synced assets disappear when the position closes at the source.
  */
 export async function deleteFinancialAsset(id: string, userId: string): Promise<boolean> {
   const existing = await prisma.financialAsset.findFirst({
-    where: { id, userId },
+    where: { id, userId, source: "MANUAL" },
   });
 
   if (!existing) {
@@ -266,8 +299,9 @@ export interface FinancialAssetsSyncResult {
 }
 
 /**
- * Sync prices for all user's financial assets from Alpha Vantage
- * This is the core sync function called by the unified sync orchestrator
+ * Sync prices for all user's MANUAL financial assets from Alpha Vantage.
+ * Synced assets (INDEXA/IBKR) get their prices from their own integrations.
+ * This is the core sync function called by the unified sync orchestrator.
  */
 export async function syncFinancialAssetPrices(
   userId: string,
@@ -277,7 +311,7 @@ export async function syncFinancialAssetPrices(
   }
 ): Promise<FinancialAssetsSyncResult> {
   const assets = await prisma.financialAsset.findMany({
-    where: { userId },
+    where: { userId, source: "MANUAL" },
   });
 
   if (assets.length === 0) {
@@ -296,10 +330,10 @@ export async function syncFinancialAssetPrices(
       let price: number;
 
       if (asset.type === "CRYPTO") {
-        const quote = await client.getCryptoQuote(asset.symbol, asset.currency);
+        const quote = await client.getCryptoQuote(asset.ticker, asset.currency);
         price = quote.price;
       } else {
-        const quote = await client.getStockQuote(asset.symbol, asset.currency);
+        const quote = await client.getStockQuote(asset.ticker, asset.currency);
         price = quote.price;
       }
 
@@ -307,7 +341,7 @@ export async function syncFinancialAssetPrices(
       updated++;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      errors.push(`${asset.symbol}: ${message}`);
+      errors.push(`${asset.ticker}: ${message}`);
 
       if (message.includes("Rate limit") || message.includes("rate limit")) {
         errors.push("Rate limit reached - remaining assets skipped");

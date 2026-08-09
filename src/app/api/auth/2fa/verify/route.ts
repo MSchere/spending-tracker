@@ -8,10 +8,7 @@ export async function POST(request: NextRequest) {
     const { userId, code } = body;
 
     if (!userId || !code) {
-      return NextResponse.json(
-        { error: "User ID and code are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "User ID and code are required" }, { status: 400 });
     }
 
     // Find user
@@ -26,10 +23,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Check if 2FA is already enabled
@@ -53,10 +47,7 @@ export async function POST(request: NextRequest) {
     const isValid = verifyTotp(code, decryptedSecret);
 
     if (!isValid) {
-      return NextResponse.json(
-        { error: "Invalid verification code" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid verification code" }, { status: 400 });
     }
 
     // Enable 2FA
@@ -71,9 +62,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("2FA verification error:", error);
-    return NextResponse.json(
-      { error: "An unexpected error occurred" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 });
   }
 }

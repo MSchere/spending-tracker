@@ -1,0 +1,19 @@
+# The image downloads the gateway binaries at build time; only
+# root/conf.yaml is needed from the build context.
+bin/
+build/
+dist/
+doc/
+logs/
+.vertx/
+root/vertx.jks
+root/demo.zip
+root/webapps/
+root/logback.xml
+root/conf.alpha.yaml
+root/conf.api.alpha.yaml
+root/conf.beta.yaml
+root/conf.tws.yaml
+fetch-gateway.sh
+Dockerfile
+.dockerignore

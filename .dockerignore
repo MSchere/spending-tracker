@@ -45,3 +45,17 @@ docker/backup
 *.log
 .DS_Store
 Thumbs.db
+
+# IBKR gateway binaries (built as a separate image from ./ibkr)
+ibkr/
+
+# Local databases (never bake into images)
+*.db
+*.db-shm
+*.db-wal
+*.db.bak
+
+# Docs & deployment assets not needed in the image
+docs/
+nix/
+scripts/

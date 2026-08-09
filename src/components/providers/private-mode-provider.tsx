@@ -32,11 +32,7 @@ export function PrivateModeProvider({ children }: { children: React.ReactNode })
     [isPrivate, togglePrivateMode]
   );
 
-  return (
-    <PrivateModeContext.Provider value={contextValue}>
-      {children}
-    </PrivateModeContext.Provider>
-  );
+  return <PrivateModeContext.Provider value={contextValue}>{children}</PrivateModeContext.Provider>;
 }
 
 /**

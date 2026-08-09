@@ -53,3 +53,23 @@ next-env.d.ts
 *.db
 *.db-shm
 *.db-wal
+
+# IBKR Client Portal Gateway — binaries are downloaded at build/dev time
+# (ibkr/fetch-gateway.sh or the image build); only our config is committed
+ibkr/bin/
+ibkr/build/
+ibkr/dist/
+ibkr/doc/
+ibkr/logs/
+ibkr/.vertx/
+ibkr/root/webapps/
+ibkr/root/demo.zip
+ibkr/root/vertx.jks
+ibkr/root/logback.xml
+ibkr/root/conf.alpha.yaml
+ibkr/root/conf.api.alpha.yaml
+ibkr/root/conf.beta.yaml
+ibkr/root/conf.tws.yaml
+
+# Local DB backups
+*.db.bak

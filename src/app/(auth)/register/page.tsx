@@ -56,9 +56,7 @@ export default function RegisterPage() {
       toast.success("Account created! Please set up 2FA to continue.");
       router.push(`/setup-2fa?userId=${data.userId}`);
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "An unexpected error occurred"
-      );
+      toast.error(error instanceof Error ? error.message : "An unexpected error occurred");
     } finally {
       setIsLoading(false);
     }
@@ -68,9 +66,7 @@ export default function RegisterPage() {
     <Card>
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl">Create an account</CardTitle>
-        <CardDescription>
-          Enter your details to create your account
-        </CardDescription>
+        <CardDescription>Enter your details to create your account</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit} className="flex flex-col gap-8">
         <CardContent className="space-y-4">
@@ -112,9 +108,7 @@ export default function RegisterPage() {
               autoComplete="new-password"
               minLength={8}
             />
-            <p className="text-xs text-muted-foreground">
-              Must be at least 8 characters
-            </p>
+            <p className="text-xs text-muted-foreground">Must be at least 8 characters</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm Password</Label>

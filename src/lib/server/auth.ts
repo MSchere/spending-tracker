@@ -39,8 +39,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const password = credentials.password as string;
         // NextAuth may serialize undefined as "undefined" string
         const rawTotpCode = credentials.totpCode as string | undefined;
-        const totpCode =
-          rawTotpCode && rawTotpCode !== "undefined" ? rawTotpCode : undefined;
+        const totpCode = rawTotpCode && rawTotpCode !== "undefined" ? rawTotpCode : undefined;
 
         // Find user by email
         const user = await db.user.findUnique({

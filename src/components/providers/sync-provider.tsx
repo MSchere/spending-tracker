@@ -108,8 +108,12 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     checkAndSync();
   }, [pathname, status, triggerSync]);
 
-  // Cleanup on unmount
+  // Track mounted state. StrictMode double-invokes effects in dev
+  // (setup → cleanup → setup), so the ref must be reset to true inside
+  // the effect body — otherwise it stays false forever after the first
+  // cleanup and triggerSync never clears isSyncing.
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };

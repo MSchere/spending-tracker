@@ -23,6 +23,16 @@ export async function syncIndexaData(
   const client = getIndexaClient();
   let snapshotsAdded = 0;
 
+  // Holdings aggregated across all accounts (same fund can appear in both
+  // mutual and pension accounts), keyed by ISIN or instrument name.
+  const aggregatedHoldings = new Map<
+    string,
+    { name: string; isin: string | null; totalShares: number; totalValue: number }
+  >();
+  // Cash portion of the accounts, tracked as a CASH FinancialAsset so that
+  // overview totals match the account snapshots (which include cash).
+  let totalCash = 0;
+
   try {
     const user = await client.getUser();
     const accounts = user.accounts ?? [];
@@ -61,7 +71,7 @@ export async function syncIndexaData(
       const returns = portfolio.totalValue - totalInvested;
       const returnsPercent = totalInvested > 0 ? (returns / totalInvested) * 100 : 0;
 
-      const currentSnapshot = await db.indexaPortfolioSnapshot.upsert({
+      await db.indexaPortfolioSnapshot.upsert({
         where: { accountId_date: { accountId: dbAccount.id, date: snapshotDate } },
         create: {
           accountId: dbAccount.id,
@@ -81,35 +91,39 @@ export async function syncIndexaData(
         },
       });
 
-      await db.indexaHolding.deleteMany({ where: { snapshotId: currentSnapshot.id } });
+      // Aggregate holdings across accounts; they are persisted as
+      // FinancialAsset rows (source = INDEXA) after the account loop.
+      for (const holding of portfolio.holdings) {
+        if (holding.value <= 0 || holding.shares <= 0) continue;
 
-      const nonZeroHoldings = portfolio.holdings.filter((h) => h.value > 0 && h.shares > 0);
-      const totalHoldingsValue = nonZeroHoldings.reduce((sum, h) => sum + h.value, 0);
-
-      for (const holding of nonZeroHoldings) {
-        const weight = totalHoldingsValue > 0 ? (holding.value / totalHoldingsValue) * 100 : 0;
-        await db.indexaHolding.create({
-          data: {
-            snapshotId: currentSnapshot.id,
-            instrumentName: holding.instrumentName,
-            instrumentType: holding.instrumentType,
+        const key = holding.isin ?? holding.instrumentName;
+        const existing = aggregatedHoldings.get(key);
+        if (existing) {
+          existing.totalShares += holding.shares;
+          existing.totalValue += holding.value;
+        } else {
+          aggregatedHoldings.set(key, {
+            name: holding.instrumentName,
             isin: holding.isin,
-            shares: new Decimal(holding.shares),
-            value: new Decimal(holding.value),
-            weight: new Decimal(weight),
-          },
-        });
+            totalShares: holding.shares,
+            totalValue: holding.value,
+          });
+        }
       }
+
+      totalCash += portfolio.cashAmount;
 
       snapshotsAdded++;
 
       const endDate = new Date();
       const startDate =
-        mode === "full"
-          ? subYears(endDate, 10)
-          : dbAccount.lastSyncAt ?? subDays(endDate, 30);
+        mode === "full" ? subYears(endDate, 10) : (dbAccount.lastSyncAt ?? subDays(endDate, 30));
 
-      const performancePoints = await client.getPerformance(account.accountNumber, startDate, endDate);
+      const performancePoints = await client.getPerformance(
+        account.accountNumber,
+        startDate,
+        endDate
+      );
 
       for (const point of performancePoints) {
         const pointDate = startOfDay(new Date(point.date));
@@ -143,6 +157,90 @@ export async function syncIndexaData(
         data: { lastSyncAt: new Date() },
       });
     }
+
+    // Persist aggregated holdings as FinancialAsset rows (source = INDEXA).
+    // Indexa instruments are mutual funds; per-instrument cost basis is not
+    // available from the API, so avgCostBasis stays null.
+    const now = new Date();
+    const today = startOfDay(now);
+    const seenTickers: string[] = [];
+
+    for (const [ticker, holding] of aggregatedHoldings) {
+      const price = holding.totalValue / holding.totalShares;
+
+      const asset = await db.financialAsset.upsert({
+        where: {
+          userId_source_ticker_type: { userId, source: "INDEXA", ticker, type: "FUND" },
+        },
+        create: {
+          userId,
+          ticker,
+          isin: holding.isin,
+          name: holding.name,
+          type: "FUND",
+          source: "INDEXA",
+          externalId: holding.isin,
+          shares: new Decimal(holding.totalShares),
+          avgCostBasis: null,
+          currency: "EUR",
+          lastPrice: new Decimal(price),
+          lastPriceAt: now,
+        },
+        update: {
+          name: holding.name,
+          isin: holding.isin,
+          externalId: holding.isin,
+          shares: new Decimal(holding.totalShares),
+          lastPrice: new Decimal(price),
+          lastPriceAt: now,
+        },
+      });
+
+      seenTickers.push(ticker);
+
+      await db.financialAssetPrice.upsert({
+        where: { assetId_date: { assetId: asset.id, date: today } },
+        create: { assetId: asset.id, date: today, price: new Decimal(price) },
+        update: { price: new Decimal(price) },
+      });
+    }
+
+    // Track the accounts' cash portion as a CASH asset (priced 1:1 in EUR).
+    const CASH_TICKER = "INDEXA_CASH";
+    if (totalCash > 0) {
+      await db.financialAsset.upsert({
+        where: {
+          userId_source_ticker_type: {
+            userId,
+            source: "INDEXA",
+            ticker: CASH_TICKER,
+            type: "CASH",
+          },
+        },
+        create: {
+          userId,
+          ticker: CASH_TICKER,
+          name: "Cash (Indexa Capital)",
+          type: "CASH",
+          source: "INDEXA",
+          shares: new Decimal(totalCash),
+          avgCostBasis: new Decimal(1),
+          currency: "EUR",
+          lastPrice: new Decimal(1),
+          lastPriceAt: new Date(),
+        },
+        update: {
+          shares: new Decimal(totalCash),
+          lastPriceAt: new Date(),
+        },
+      });
+      seenTickers.push(CASH_TICKER);
+    }
+
+    // Remove Indexa assets whose positions no longer exist
+    await db.financialAsset.deleteMany({
+      where: { userId, source: "INDEXA", ticker: { notIn: seenTickers } },
+    });
 
     return { success: true, accountsSynced: accounts.length, snapshotsAdded };
   } catch (error) {
@@ -195,18 +293,40 @@ export async function getIndexaPortfolioSummary(userId: string): Promise<{
     totalInvested += invested;
     totalReturns += returns;
 
-    return { accountNumber: account.accountNumber, accountType: account.accountType, status: account.status, currentValue, returns, returnsPercent, lastSyncAt: account.lastSyncAt };
+    return {
+      accountNumber: account.accountNumber,
+      accountType: account.accountType,
+      status: account.status,
+      currentValue,
+      returns,
+      returnsPercent,
+      lastSyncAt: account.lastSyncAt,
+    };
   });
 
   const totalReturnsPercent = totalInvested > 0 ? (totalReturns / totalInvested) * 100 : 0;
 
-  return { totalValue, totalInvested, totalReturns, totalReturnsPercent, accounts: accountSummaries };
+  return {
+    totalValue,
+    totalInvested,
+    totalReturns,
+    totalReturnsPercent,
+    accounts: accountSummaries,
+  };
 }
 
 export async function getIndexaPortfolioHistory(
   userId: string,
   days: number = 365
-): Promise<Array<{ date: Date; totalValue: number; totalInvested: number; returns: number; returnsPercent: number }>> {
+): Promise<
+  Array<{
+    date: Date;
+    totalValue: number;
+    totalInvested: number;
+    returns: number;
+    returnsPercent: number;
+  }>
+> {
   const startDate = subDays(new Date(), days);
   const today = new Date();
 
@@ -219,13 +339,20 @@ export async function getIndexaPortfolioHistory(
   if (accountIds.length === 0) return [];
 
   const snapshots = await db.indexaPortfolioSnapshot.findMany({
-    where: { accountId: { in: accountIds }, date: { gte: startDate, lte: today }, totalValue: { gt: 0 } },
+    where: {
+      accountId: { in: accountIds },
+      date: { gte: startDate, lte: today },
+      totalValue: { gt: 0 },
+    },
     orderBy: { date: "asc" },
   });
 
   // Deduplicate per account per date (guards against Z vs +00:00 format duplicates
   // that can both exist in SQLite since it compares datetime strings literally).
-  const perAccount = new Map<string, Map<string, { date: Date; totalValue: number; totalInvested: number; returns: number }>>();
+  const perAccount = new Map<
+    string,
+    Map<string, { date: Date; totalValue: number; totalInvested: number; returns: number }>
+  >();
 
   for (const snapshot of snapshots) {
     const dateKey = snapshot.date.toISOString().split("T")[0];
@@ -238,7 +365,10 @@ export async function getIndexaPortfolioHistory(
     });
   }
 
-  const grouped = new Map<string, { date: Date; totalValue: number; totalInvested: number; returns: number }>();
+  const grouped = new Map<
+    string,
+    { date: Date; totalValue: number; totalInvested: number; returns: number }
+  >();
 
   for (const accountDates of perAccount.values()) {
     for (const [dateKey, values] of accountDates) {
@@ -257,45 +387,4 @@ export async function getIndexaPortfolioHistory(
     ...point,
     returnsPercent: point.totalInvested > 0 ? (point.returns / point.totalInvested) * 100 : 0,
   }));
-}
-
-export async function getIndexaHoldings(userId: string): Promise<
-  Array<{ instrumentName: string; instrumentType: string; isin: string | null; totalShares: number; totalValue: number; weight: number }>
-> {
-  const accounts = await db.indexaAccount.findMany({ where: { userId, status: "active" } });
-
-  const holdingsMap = new Map<string, { instrumentName: string; instrumentType: string; isin: string | null; totalShares: number; totalValue: number }>();
-  let grandTotal = 0;
-
-  for (const account of accounts) {
-    const latestSnapshot = await db.indexaPortfolioSnapshot.findFirst({
-      where: { accountId: account.id },
-      orderBy: { date: "desc" },
-      include: { holdings: true },
-    });
-
-    if (latestSnapshot) {
-      for (const holding of latestSnapshot.holdings) {
-        const shares = holding.shares.toNumber();
-        const value = holding.value.toNumber();
-        if (value <= 0 || shares <= 0) continue;
-
-        const key = holding.instrumentName;
-        grandTotal += value;
-        const existing = holdingsMap.get(key);
-
-        if (existing) {
-          existing.totalShares += shares;
-          existing.totalValue += value;
-        } else {
-          holdingsMap.set(key, { instrumentName: holding.instrumentName, instrumentType: holding.instrumentType, isin: holding.isin, totalShares: shares, totalValue: value });
-        }
-      }
-    }
-  }
-
-  return Array.from(holdingsMap.values())
-    .filter((h) => h.totalValue > 0)
-    .map((h) => ({ ...h, weight: grandTotal > 0 ? (h.totalValue / grandTotal) * 100 : 0 }))
-    .sort((a, b) => b.totalValue - a.totalValue);
 }

@@ -32,6 +32,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { ArrowDownIcon, ArrowUpIcon, CalendarClock, Loader2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -68,6 +70,18 @@ const frequencyLabels: Record<string, string> = {
   QUARTERLY: "Quarterly",
   YEARLY: "Yearly",
 };
+
+// Sort order for frequency: shortest interval first
+const frequencyOrder: Record<string, number> = {
+  WEEKLY: 1,
+  BIWEEKLY: 2,
+  MONTHLY: 3,
+  BIMONTHLY: 4,
+  QUARTERLY: 5,
+  YEARLY: 6,
+};
+
+type RecurringSortKey = "name" | "type" | "category" | "frequency" | "nextDueDate" | "amount";
 
 /**
  * Calculate monthly equivalent amount from any frequency
@@ -175,6 +189,36 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
     }
   }
 
+  const {
+    sorted: sortedRecurring,
+    sortKey,
+    sortDir,
+    toggleSort,
+  } = useTableSort<RecurringItem, RecurringSortKey>(
+    recurring,
+    (r, key): string | number | null => {
+      switch (key) {
+        case "name":
+          return r.name.toLowerCase();
+        case "type":
+          return r.type;
+        case "category":
+          return r.categoryName?.toLowerCase() ?? null;
+        case "frequency":
+          return frequencyOrder[r.frequency] ?? 99;
+        case "nextDueDate":
+          return new Date(r.nextDueDate).getTime();
+        case "amount":
+          return r.amount;
+        default:
+          return null;
+      }
+    },
+    "nextDueDate",
+    "asc",
+    { ascColumns: ["name", "type", "category"] }
+  );
+
   // Calculate monthly totals by type
   const activeItems = recurring.filter((r) => r.isActive);
 
@@ -204,7 +248,9 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Monthly Recurring Expenses</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Average Monthly Recurring Expenses
+            </CardTitle>
             <ArrowUpIcon className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
@@ -345,17 +391,54 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Frequency</TableHead>
-                <TableHead>Next Due</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <SortableTableHead
+                  label="Name"
+                  column="name"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableTableHead
+                  label="Type"
+                  column="type"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableTableHead
+                  label="Category"
+                  column="category"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableTableHead
+                  label="Frequency"
+                  column="frequency"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableTableHead
+                  label="Next Due"
+                  column="nextDueDate"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableTableHead
+                  label="Amount"
+                  column="amount"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                  className="text-right"
+                />
+                <TableHead className="w-12.5"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recurring.map((item) => (
+              {sortedRecurring.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>

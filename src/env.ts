@@ -31,6 +31,10 @@ export const env = createEnv({
 
     // Alpha Vantage API (optional - for stocks/crypto prices)
     ALPHA_VANTAGE_API_KEY: z.string().optional(),
+
+    // IBKR Client Portal Gateway (optional - for Interactive Brokers positions)
+    // URL of the locally running gateway (self-signed HTTPS, e.g. https://localhost:5000)
+    IBKR_GATEWAY_URL: z.string().url().optional(),
   },
 
   /**
@@ -56,6 +60,7 @@ export const env = createEnv({
     INDEXA_PASSWORD: process.env.INDEXA_PASSWORD,
     INDEXA_DOCUMENT: process.env.INDEXA_DOCUMENT,
     ALPHA_VANTAGE_API_KEY: process.env.ALPHA_VANTAGE_API_KEY,
+    IBKR_GATEWAY_URL: process.env.IBKR_GATEWAY_URL,
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
   },
 

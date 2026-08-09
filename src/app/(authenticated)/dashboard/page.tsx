@@ -6,7 +6,6 @@ import {
   type BudgetProgressData,
 } from "@/components/charts";
 import { DashboardContent } from "./dashboard-content";
-import { getIndexaPortfolioSummary, isIndexaConfigured } from "@/lib/server/indexa";
 import { getFinancialAssetsTotals } from "@/lib/server/alphavantage";
 import { getTangibleAssetsTotals } from "@/lib/server/assets";
 import { subWeeks, subMonths, subQuarters, subYears } from "date-fns";
@@ -197,13 +196,26 @@ function calculateDashboardStats(data: Awaited<ReturnType<typeof getAllDashboard
     if (nextDueDate > currentMonthEnd) {
       let prev: Date;
       switch (frequency) {
-        case "WEEKLY":     prev = subWeeks(nextDueDate, 1);   break;
-        case "BIWEEKLY":   prev = subWeeks(nextDueDate, 2);   break;
-        case "MONTHLY":    prev = subMonths(nextDueDate, 1);  break;
-        case "BIMONTHLY":  prev = subMonths(nextDueDate, 2);  break;
-        case "QUARTERLY":  prev = subQuarters(nextDueDate, 1); break;
-        case "YEARLY":     prev = subYears(nextDueDate, 1);   break;
-        default:           prev = subMonths(nextDueDate, 1);
+        case "WEEKLY":
+          prev = subWeeks(nextDueDate, 1);
+          break;
+        case "BIWEEKLY":
+          prev = subWeeks(nextDueDate, 2);
+          break;
+        case "MONTHLY":
+          prev = subMonths(nextDueDate, 1);
+          break;
+        case "BIMONTHLY":
+          prev = subMonths(nextDueDate, 2);
+          break;
+        case "QUARTERLY":
+          prev = subQuarters(nextDueDate, 1);
+          break;
+        case "YEARLY":
+          prev = subYears(nextDueDate, 1);
+          break;
+        default:
+          prev = subMonths(nextDueDate, 1);
       }
       return prev >= currentMonthStart && prev <= currentMonthEnd;
     }
@@ -281,7 +293,15 @@ function calculateCashFlowData(
   for (let i = 5; i >= 0; i--) {
     const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const startOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-    const endOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59, 999);
+    const endOfMonth = new Date(
+      monthDate.getFullYear(),
+      monthDate.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
 
     const monthTransactions = transactions.filter(
       (t) => t.date >= startOfMonth && t.date <= endOfMonth
@@ -386,19 +406,10 @@ export default async function DashboardPage() {
     allData.currentMonthTransactions
   );
 
-  const [indexaPortfolio, financialAssetsTotals, tangibleAssetsTotals] = await Promise.all([
-    isIndexaConfigured() ? getIndexaPortfolioSummary(session.user.id) : null,
+  const [financialAssetsTotals, tangibleAssetsTotals] = await Promise.all([
     getFinancialAssetsTotals(session.user.id),
     getTangibleAssetsTotals(session.user.id),
   ]);
-
-  const investmentSummary = indexaPortfolio
-    ? {
-        totalValue: indexaPortfolio.totalValue,
-        totalReturns: indexaPortfolio.totalReturns,
-        totalReturnsPercent: indexaPortfolio.totalReturnsPercent,
-      }
-    : null;
 
   const financialAssetsSummary =
     financialAssetsTotals.assetCount > 0
@@ -422,14 +433,14 @@ export default async function DashboardPage() {
         }
       : null;
 
+  // Indexa fund positions are stored as FinancialAssets (source = INDEXA), so
+  // they are already included in financialAssetsSummary — no separate term.
   const netWorth = {
     cash: stats.totalBalance,
-    indexa: investmentSummary?.totalValue ?? 0,
-    financialAssets: financialAssetsSummary?.totalValue ?? 0,
+    investments: financialAssetsSummary?.totalValue ?? 0,
     tangibleAssets: tangibleAssetsSummary?.totalCurrentValue ?? 0,
     total:
       stats.totalBalance +
-      (investmentSummary?.totalValue ?? 0) +
       (financialAssetsSummary?.totalValue ?? 0) +
       (tangibleAssetsSummary?.totalCurrentValue ?? 0),
   };
@@ -444,7 +455,6 @@ export default async function DashboardPage() {
       budgetProgressData={budgetProgressData}
       monthName={monthName}
       userName={session.user.name || session.user.email || "User"}
-      investmentSummary={investmentSummary}
       financialAssetsSummary={financialAssetsSummary}
       tangibleAssetsSummary={tangibleAssetsSummary}
       netWorth={netWorth}

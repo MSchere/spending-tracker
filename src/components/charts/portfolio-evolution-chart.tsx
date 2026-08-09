@@ -40,7 +40,7 @@ export function PortfolioEvolutionChart({ data }: PortfolioEvolutionChartProps) 
 
   if (data.length === 0) {
     return (
-      <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+      <div className="flex h-75 items-center justify-center text-muted-foreground">
         No portfolio data available
       </div>
     );
@@ -53,7 +53,7 @@ export function PortfolioEvolutionChart({ data }: PortfolioEvolutionChartProps) 
   }));
 
   return (
-    <ChartContainer config={chartConfig} className="h-[300px] w-full">
+    <ChartContainer config={chartConfig} className="h-75 w-full">
       <LineChart data={chartData} accessibilityLayer>
         <CartesianGrid vertical={false} strokeDasharray="3 3" />
         <XAxis dataKey="dateLabel" tickLine={false} tickMargin={10} axisLine={false} />

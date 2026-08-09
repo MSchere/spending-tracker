@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SummaryCard } from "@/components/ui/summary-card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -22,10 +23,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PortfolioEvolutionChart } from "@/components/charts/portfolio-evolution-chart";
+import { HoldingsChart } from "@/components/charts/holdings-chart";
+import { useTableSort } from "@/hooks/use-table-sort";
 import {
   Plus,
   Loader2,
@@ -34,23 +46,35 @@ import {
   TrendingUp,
   TrendingDown,
   RefreshCw,
-  Coins,
-  BarChart3,
   AlertTriangle,
   Search,
   Wallet,
   DollarSign,
+  Landmark,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
 import { usePreferences } from "@/components/providers/preferences-provider";
-import type { FinancialAssetSummary, FinancialAssetsTotals } from "@/lib/server/alphavantage";
+import type { FinancialAssetSummary } from "@/lib/server/alphavantage";
+import type { SourceBreakdown, PortfolioHistoryPoint } from "@/lib/server/portfolio";
+import type { AssetSource } from "@prisma/client";
 
 // Asset type configuration
 const ASSET_TYPES = [
   { value: "STOCK", label: "Stock", description: "Individual company shares" },
   { value: "ETF", label: "ETF", description: "Exchange-traded fund" },
+  { value: "FUND", label: "Fund", description: "Mutual / index fund" },
   { value: "CRYPTO", label: "Crypto", description: "Cryptocurrency" },
 ] as const;
+
+const SOURCE_LABELS: Record<AssetSource, string> = {
+  MANUAL: "Manual",
+  INDEXA: "Indexa",
+  IBKR: "IBKR",
+};
+
+type HoldingsSortKey =
+  "name" | "type" | "source" | "shares" | "price" | "value" | "gainLoss" | "weight";
 
 interface SearchResult {
   symbol: string;
@@ -61,10 +85,22 @@ interface SearchResult {
   matchScore: number;
 }
 
+interface Integrations {
+  alphaVantage: boolean;
+  indexa: boolean;
+  ibkr: boolean;
+  ibkrAuthenticated: boolean;
+}
+
 interface FinancialAssetsContentProps {
-  initialAssets: FinancialAssetSummary[];
-  initialTotals: FinancialAssetsTotals;
-  isApiConfigured: boolean;
+  assets: FinancialAssetSummary[];
+  totalValue: number;
+  totalCost: number | null;
+  totalGainLoss: number | null;
+  totalGainLossPercent: number | null;
+  bySource: SourceBreakdown[];
+  history: PortfolioHistoryPoint[];
+  integrations: Integrations;
 }
 
 function formatPercent(value: number): string {
@@ -72,34 +108,30 @@ function formatPercent(value: number): string {
   return `${sign}${value.toFixed(2)}%`;
 }
 
-function getAssetTypeIcon(type: string) {
-  switch (type) {
-    case "CRYPTO":
-      return Coins;
-    case "ETF":
-      return BarChart3;
-    default:
-      return TrendingUp;
-  }
-}
-
 export function FinancialAssetsContent({
-  initialAssets,
-  initialTotals,
-  isApiConfigured,
+  assets,
+  totalValue,
+  totalCost,
+  totalGainLoss,
+  totalGainLossPercent,
+  bySource,
+  history,
+  integrations,
 }: FinancialAssetsContentProps) {
   const router = useRouter();
   const { isPrivate } = usePrivateMode();
-  const { formatCurrency, formatDate, preferences } = usePreferences();
+  const { formatCurrency, preferences } = usePreferences();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingAsset, setEditingAsset] = useState<FinancialAssetSummary | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<"ALL" | AssetSource>("ALL");
 
   // Form state
-  const [assetType, setAssetType] = useState<"STOCK" | "ETF" | "CRYPTO">("STOCK");
-  const [symbol, setSymbol] = useState("");
+  const [assetType, setAssetType] = useState<"STOCK" | "ETF" | "CRYPTO" | "FUND">("STOCK");
+  const [ticker, setTicker] = useState("");
+  const [isin, setIsin] = useState("");
   const [name, setName] = useState("");
   const [shares, setShares] = useState("");
   const [avgCostBasis, setAvgCostBasis] = useState("");
@@ -111,7 +143,8 @@ export function FinancialAssetsContent({
 
   function resetForm() {
     setAssetType("STOCK");
-    setSymbol("");
+    setTicker("");
+    setIsin("");
     setName("");
     setShares("");
     setAvgCostBasis("");
@@ -143,7 +176,6 @@ export function FinancialAssetsContent({
     }
   }, []);
 
-  // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchQuery && !editingAsset) {
@@ -154,7 +186,7 @@ export function FinancialAssetsContent({
   }, [searchQuery, assetType, searchSymbols, editingAsset]);
 
   function selectSearchResult(result: SearchResult) {
-    setSymbol(result.symbol);
+    setTicker(result.symbol);
     setName(result.name);
     setAssetType(result.type);
     setSearchResults([]);
@@ -163,16 +195,17 @@ export function FinancialAssetsContent({
 
   function openEditDialog(asset: FinancialAssetSummary) {
     setEditingAsset(asset);
-    setAssetType(asset.type as "STOCK" | "ETF" | "CRYPTO");
-    setSymbol(asset.symbol);
+    setAssetType(asset.type as "STOCK" | "ETF" | "CRYPTO" | "FUND");
+    setTicker(asset.ticker);
+    setIsin(asset.isin ?? "");
     setName(asset.name);
     setShares(String(asset.shares));
-    setAvgCostBasis(String(asset.avgCostBasis));
+    setAvgCostBasis(asset.avgCostBasis != null ? String(asset.avgCostBasis) : "");
     setIsDialogOpen(true);
   }
 
   async function handleSubmit() {
-    if (!symbol || !name || !shares || !avgCostBasis) {
+    if (!ticker || !name || !shares || !avgCostBasis) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -181,7 +214,8 @@ export function FinancialAssetsContent({
 
     try {
       const payload = {
-        symbol: symbol.toUpperCase(),
+        ticker: ticker.toUpperCase(),
+        isin: isin ? isin.toUpperCase() : undefined,
         name,
         type: assetType,
         shares: parseFloat(shares),
@@ -224,7 +258,8 @@ export function FinancialAssetsContent({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to delete asset");
+        const data = await response.json();
+        throw new Error(data.error || "Failed to delete asset");
       }
 
       toast.success("Asset deleted");
@@ -237,7 +272,7 @@ export function FinancialAssetsContent({
   }
 
   async function handleSyncPrices() {
-    if (!isApiConfigured) {
+    if (!integrations.alphaVantage) {
       toast.error("Alpha Vantage API key not configured");
       return;
     }
@@ -269,31 +304,92 @@ export function FinancialAssetsContent({
     }
   }
 
-  const isGain = initialTotals.totalGainLoss >= 0;
+  const isGain = (totalGainLoss ?? 0) >= 0;
+  const manualAssets = assets.filter((a) => a.source === "MANUAL");
+  const filteredAssets =
+    sourceFilter === "ALL" ? assets : assets.filter((a) => a.source === sourceFilter);
+
+  const {
+    sorted: sortedAssets,
+    sortKey,
+    sortDir,
+    toggleSort,
+  } = useTableSort<FinancialAssetSummary, HoldingsSortKey>(
+    filteredAssets,
+    (a, key): string | number | null => {
+      switch (key) {
+        case "name":
+          return a.name.toLowerCase();
+        case "type":
+          return a.type;
+        case "source":
+          return a.source;
+        case "shares":
+          return a.shares;
+        case "price":
+          return a.lastPrice;
+        case "value":
+          return a.currentValue;
+        case "gainLoss":
+          return a.gainLoss;
+        case "weight":
+          return totalValue > 0 ? (a.currentValue / totalValue) * 100 : 0;
+        default:
+          return null;
+      }
+    },
+    "value",
+    "desc",
+    { ascColumns: ["name", "type", "source"] }
+  );
+
+  // Allocation pie data (by asset, sorted desc)
+  const allocationData = [...assets]
+    .sort((a, b) => b.currentValue - a.currentValue)
+    .map((asset) => ({
+      instrumentName: asset.name,
+      instrumentType: asset.type,
+      totalValue: asset.currentValue,
+      weight: totalValue > 0 ? (asset.currentValue / totalValue) * 100 : 0,
+    }));
+
+  // Evolution chart data
+  const chartHistory = history
+    .filter((point) => point.totalValue > 0)
+    .map((point) => ({
+      date: new Date(point.date),
+      totalValue: point.totalValue,
+      totalInvested: point.totalInvested ?? 0,
+      returns: point.totalInvested != null ? point.totalValue - point.totalInvested : 0,
+      returnsPercent: 0,
+    }));
 
   return (
     <>
-      {!isApiConfigured && (
+      {integrations.ibkr && !integrations.ibkrAuthenticated && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            Alpha Vantage API key not configured. Price syncing is disabled. Add
-            ALPHA_VANTAGE_API_KEY to your environment variables.
+            IBKR gateway session expired or unreachable. Open the gateway URL (
+            {typeof window !== "undefined" ? "https://localhost:5000" : "gateway"}) in a browser and
+            log in again, then sync.
           </AlertDescription>
         </Alert>
       )}
 
       <div className="grid gap-4 md:grid-cols-3">
         <SummaryCard
-          title="Total Value"
-          value={isPrivate ? "••••" : formatCurrency(initialTotals.totalValue)}
-          description="Current market value"
+          title="Portfolio Value"
+          value={isPrivate ? "••••" : formatCurrency(totalValue)}
+          description="All investment accounts"
           icon={Wallet}
         />
 
         <SummaryCard
           title="Total Cost Basis"
-          value={isPrivate ? "••••" : formatCurrency(initialTotals.totalCost)}
+          value={
+            isPrivate ? "••••" : totalCost != null ? formatCurrency(totalCost) : "Partially known"
+          }
           description="Amount invested"
           icon={DollarSign}
         />
@@ -301,18 +397,82 @@ export function FinancialAssetsContent({
         <SummaryCard
           title="Total Gain/Loss"
           value={
-            isPrivate
-              ? "••••"
-              : `${formatCurrency(initialTotals.totalGainLoss)} (${formatPercent(initialTotals.totalGainLossPercent)})`
+            isPrivate ? (
+              "••••"
+            ) : totalGainLoss != null ? (
+              <>
+                {formatCurrency(totalGainLoss)}
+                <span
+                  className={cn(
+                    "text-xs font-normal ml-2",
+                    isGain ? "text-green-600" : "text-red-600"
+                  )}
+                >
+                  {formatPercent(totalGainLossPercent ?? 0)}
+                </span>
+              </>
+            ) : (
+              "N/A"
+            )
           }
           description="Overall performance"
           icon={isGain ? TrendingUp : TrendingDown}
           iconColor={isGain ? "text-green-500" : "text-red-500"}
-          valueColor={isGain ? "text-green-600" : "text-red-600"}
+          valueColor={
+            totalGainLoss != null ? (isGain ? "text-green-600" : "text-red-600") : undefined
+          }
         />
       </div>
 
-      <div className="flex gap-2">
+      <div className="grid gap-4">
+        <Card className="min-w-0">
+          <CardHeader>
+            <CardTitle>Portfolio Evolution</CardTitle>
+            <CardDescription>Value vs invested amount over the past year</CardDescription>
+          </CardHeader>
+          <CardContent className="overflow-hidden">
+            <PortfolioEvolutionChart data={chartHistory} />
+          </CardContent>
+        </Card>
+
+        <Card className="min-w-0">
+          <CardHeader>
+            <CardTitle>Asset Allocation</CardTitle>
+            <CardDescription>Current allocation by holding</CardDescription>
+          </CardHeader>
+          <CardContent className="overflow-hidden">
+            <HoldingsChart data={allocationData} />
+          </CardContent>
+        </Card>
+      </div>
+
+      {bySource.length > 1 && (
+        <div className="grid gap-4 md:grid-cols-3">
+          {bySource.map((entry) => (
+            <Card key={entry.source}>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Landmark className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-base">{SOURCE_LABELS[entry.source]}</CardTitle>
+                </div>
+                <CardDescription>
+                  {entry.assetCount} position{entry.assetCount !== 1 ? "s" : ""}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-2xl font-semibold">
+                    {isPrivate ? "••••" : formatCurrency(entry.totalValue)}
+                  </span>
+                  <span className="text-sm text-muted-foreground">{entry.weight.toFixed(1)}%</span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
         <Dialog
           open={isDialogOpen}
           onOpenChange={(open) => {
@@ -332,7 +492,7 @@ export function FinancialAssetsContent({
               <DialogDescription>
                 {editingAsset
                   ? "Update your position details"
-                  : "Add stocks, ETFs, or cryptocurrencies to your portfolio"}
+                  : "Add stocks, ETFs, funds, or cryptocurrencies to your portfolio"}
               </DialogDescription>
             </DialogHeader>
 
@@ -342,7 +502,7 @@ export function FinancialAssetsContent({
                 <Select
                   value={assetType}
                   onValueChange={(v) => {
-                    setAssetType(v as "STOCK" | "ETF" | "CRYPTO");
+                    setAssetType(v as "STOCK" | "ETF" | "CRYPTO" | "FUND");
                     setSearchResults([]);
                   }}
                   disabled={!!editingAsset}
@@ -363,7 +523,7 @@ export function FinancialAssetsContent({
                 </Select>
               </div>
 
-              {!editingAsset && isApiConfigured && (
+              {!editingAsset && integrations.alphaVantage && assetType !== "FUND" && (
                 <div className="space-y-2">
                   <Label htmlFor="search">Search Symbol</Label>
                   <div className="relative">
@@ -404,11 +564,11 @@ export function FinancialAssetsContent({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="symbol">Symbol *</Label>
+                  <Label htmlFor="ticker">Ticker *</Label>
                   <Input
-                    id="symbol"
-                    value={symbol}
-                    onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                    id="ticker"
+                    value={ticker}
+                    onChange={(e) => setTicker(e.target.value.toUpperCase())}
                     placeholder="AAPL"
                     disabled={!!editingAsset}
                   />
@@ -423,6 +583,17 @@ export function FinancialAssetsContent({
                     disabled={!!editingAsset}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="isin">ISIN (optional)</Label>
+                <Input
+                  id="isin"
+                  value={isin}
+                  onChange={(e) => setIsin(e.target.value.toUpperCase())}
+                  placeholder="IE00B4L5Y983"
+                  maxLength={12}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -476,7 +647,7 @@ export function FinancialAssetsContent({
           </DialogContent>
         </Dialog>
 
-        {isApiConfigured && initialAssets.length > 0 && (
+        {integrations.alphaVantage && manualAssets.length > 0 && (
           <Button variant="outline" onClick={handleSyncPrices} disabled={isSyncing}>
             {isSyncing ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -488,125 +659,205 @@ export function FinancialAssetsContent({
         )}
       </div>
 
-      {initialAssets.length === 0 ? (
-        <Card>
-          <CardContent className="py-8">
-            <div className="text-center">
-              <Coins className="mx-auto h-12 w-12 text-muted-foreground/50" />
-              <p className="mt-4 text-muted-foreground">
-                No financial assets yet. Add stocks, ETFs, or crypto to start tracking.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {initialAssets.map((asset) => {
-            const TypeIcon = getAssetTypeIcon(asset.type);
-            const isGain = asset.gainLoss >= 0;
-            const gainLossColorClass = isGain ? "text-green-600" : "text-red-600";
-            const lastUpdated = asset.lastPriceAt
-              ? formatDate(asset.lastPriceAt, {
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : null;
-
-            return (
-              <Card key={asset.id}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <TypeIcon className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <CardTitle className="text-lg">{asset.symbol}</CardTitle>
-                        <CardDescription className="truncate max-w-[180px]">
-                          {asset.name}
-                        </CardDescription>
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEditDialog(asset)}
-                      >
-                        <Pencil className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleDelete(asset.id)}
-                        disabled={deletingId === asset.id}
-                      >
-                        {deletingId === asset.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  <Badge variant="secondary" className="w-fit">
-                    {asset.type}
-                  </Badge>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Current Value</span>
-                    <span className="font-semibold">
-                      {isPrivate ? "••••" : formatCurrency(asset.currentValue, asset.currency)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      {asset.type === "CRYPTO" ? "Amount" : "Shares"}
-                    </span>
-                    <span className="text-sm">
-                      {isPrivate ? "••••" : Number(asset.shares).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Avg Cost</span>
-                    <span className="text-sm">
-                      {isPrivate
-                        ? "••••"
-                        : formatCurrency(Number(asset.avgCostBasis), asset.currency)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Last Price</span>
-                    <span className="text-sm">
-                      {isPrivate
-                        ? "••••"
-                        : asset.lastPrice
-                          ? formatCurrency(Number(asset.lastPrice), asset.currency)
-                          : "N/A"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Gain/Loss</span>
-                    <span className={`text-sm font-medium ${gainLossColorClass}`}>
-                      {isPrivate
-                        ? "••••"
-                        : `${formatCurrency(asset.gainLoss, asset.currency)} (${formatPercent(asset.gainLossPercent)})`}
-                    </span>
-                  </div>
-                  {lastUpdated && (
-                    <div className="text-xs text-muted-foreground text-right">
-                      Updated: {lastUpdated}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-xl font-semibold">Holdings</h2>
+            <p className="text-sm text-muted-foreground">
+              All positions across sources — synced positions are read-only
+            </p>
+          </div>
+          <Select
+            value={sourceFilter}
+            onValueChange={(v) => setSourceFilter(v as "ALL" | AssetSource)}
+          >
+            <SelectTrigger className="w-35">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All sources</SelectItem>
+              {bySource.map((entry) => (
+                <SelectItem key={entry.source} value={entry.source}>
+                  {SOURCE_LABELS[entry.source]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      )}
+
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <SortableTableHead
+                  label="Holding"
+                  column="name"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableTableHead
+                  label="Type"
+                  column="type"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableTableHead
+                  label="Source"
+                  column="source"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableTableHead
+                  label="Shares"
+                  column="shares"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                  className="text-right"
+                />
+                <SortableTableHead
+                  label="Price"
+                  column="price"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                  className="text-right"
+                />
+                <SortableTableHead
+                  label="Value"
+                  column="value"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                  className="text-right"
+                />
+                <SortableTableHead
+                  label="Gain/Loss"
+                  column="gainLoss"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                  className="text-right"
+                />
+                <SortableTableHead
+                  label="Weight"
+                  column="weight"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                  className="text-right"
+                />
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedAssets.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8">
+                    <p className="text-muted-foreground">
+                      No positions found. Add an asset or sync your integrations.
+                    </p>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sortedAssets.map((asset) => {
+                  const assetGain = (asset.gainLoss ?? 0) >= 0;
+                  const weight = totalValue > 0 ? (asset.currentValue / totalValue) * 100 : 0;
+
+                  return (
+                    <TableRow key={asset.id}>
+                      <TableCell>
+                        <div className="font-medium">{asset.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {asset.ticker}
+                          {asset.isin && asset.isin !== asset.ticker ? ` · ${asset.isin}` : ""}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{asset.type}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={asset.source === "MANUAL" ? "outline" : "default"}
+                          className="text-xs"
+                        >
+                          {SOURCE_LABELS[asset.source]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {isPrivate
+                          ? "••••"
+                          : asset.shares.toLocaleString(undefined, {
+                              maximumFractionDigits: 4,
+                            })}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {isPrivate
+                          ? "••••"
+                          : asset.lastPrice
+                            ? formatCurrency(asset.lastPrice, asset.currency)
+                            : "N/A"}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {isPrivate ? "••••" : formatCurrency(asset.currentValue)}
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          "text-right",
+                          asset.gainLoss != null
+                            ? assetGain
+                              ? "text-green-600"
+                              : "text-red-600"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {isPrivate
+                          ? "••••"
+                          : asset.gainLoss != null
+                            ? `${formatCurrency(asset.gainLoss)} (${formatPercent(asset.gainLossPercent ?? 0)})`
+                            : "—"}
+                      </TableCell>
+                      <TableCell className="text-right">{weight.toFixed(1)}%</TableCell>
+                      <TableCell className="text-right">
+                        {asset.source === "MANUAL" ? (
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openEditDialog(asset)}
+                            >
+                              <Pencil className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleDelete(asset.id)}
+                              disabled={deletingId === asset.id}
+                            >
+                              {deletingId === asset.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                              )}
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Synced</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
     </>
   );
 }

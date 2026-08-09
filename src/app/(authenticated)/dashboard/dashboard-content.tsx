@@ -8,6 +8,7 @@ import {
   type CashFlowData,
   type CategorySpendingData,
 } from "@/components/charts";
+import { NetWorthChart } from "@/components/charts/net-worth-chart";
 import { usePreferences } from "@/components/providers/preferences-provider";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +21,6 @@ import {
   CalendarClock,
   Coins,
   Landmark,
-  LineChart,
   Package,
   PiggyBank,
   Target,
@@ -78,16 +78,11 @@ interface DashboardContentProps {
   budgetProgressData: BudgetProgressData[];
   monthName: string;
   userName: string;
-  investmentSummary: {
-    totalValue: number;
-    totalReturns: number;
-    totalReturnsPercent: number;
-  } | null;
   financialAssetsSummary: {
     totalValue: number;
-    totalCost: number;
-    totalGainLoss: number;
-    totalGainLossPercent: number;
+    totalCost: number | null;
+    totalGainLoss: number | null;
+    totalGainLossPercent: number | null;
     assetCount: number;
   } | null;
   tangibleAssetsSummary: {
@@ -99,8 +94,7 @@ interface DashboardContentProps {
   } | null;
   netWorth: {
     cash: number;
-    indexa: number;
-    financialAssets: number;
+    investments: number;
     tangibleAssets: number;
     total: number;
   };
@@ -123,7 +117,6 @@ export function DashboardContent({
   budgetProgressData,
   monthName,
   userName,
-  investmentSummary,
   financialAssetsSummary,
   tangibleAssetsSummary,
   netWorth,
@@ -249,7 +242,7 @@ export function DashboardContent({
           </CardHeader>
           <CardContent className="overflow-hidden">
             {isPrivate ? (
-              <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+              <div className="flex h-75 items-center justify-center text-muted-foreground">
                 Chart hidden in private mode
               </div>
             ) : (
@@ -265,51 +258,57 @@ export function DashboardContent({
             </div>
             <CardDescription>Assets by category</CardDescription>
           </CardHeader>
-          <CardContent className="h-full">
-            <div className="h-full flex flex-col justify-between">
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500" />
-                  Cash
-                </span>
-                <span className="font-medium">
-                  <PrivateValue>{formatCurrency(netWorth.cash)}</PrivateValue>
-                </span>
-              </div>
-              {netWorth.indexa > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-purple-500" />
-                    Investment Funds
-                  </span>
-                  <span className="font-medium">
-                    <PrivateValue>{formatCurrency(netWorth.indexa)}</PrivateValue>
-                  </span>
+          <CardContent>
+            <div className="flex flex-col gap-4">
+              {isPrivate ? (
+                <div className="flex h-48 items-center justify-center text-muted-foreground">
+                  Chart hidden in private mode
                 </div>
+              ) : (
+                <NetWorthChart
+                  data={[
+                    { name: "Cash", value: netWorth.cash, color: "#3b82f6" },
+                    { name: "Investments", value: netWorth.investments, color: "#a855f7" },
+                    {
+                      name: "Tangible Assets",
+                      value: netWorth.tangibleAssets,
+                      color: "#f97316",
+                    },
+                  ]}
+                />
               )}
-              {netWorth.financialAssets > 0 && (
+              <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500" />
-                    Stocks & Crypto
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    Cash
                   </span>
                   <span className="font-medium">
-                    <PrivateValue>{formatCurrency(netWorth.financialAssets)}</PrivateValue>
+                    <PrivateValue>{formatCurrency(netWorth.cash)}</PrivateValue>
                   </span>
                 </div>
-              )}
-              {netWorth.tangibleAssets > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-orange-500" />
-                    Tangible Assets
-                  </span>
-                  <span className="font-medium">
-                    <PrivateValue>{formatCurrency(netWorth.tangibleAssets)}</PrivateValue>
-                  </span>
-                </div>
-							)}
+                {netWorth.investments > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-purple-500" />
+                      Investments
+                    </span>
+                    <span className="font-medium">
+                      <PrivateValue>{formatCurrency(netWorth.investments)}</PrivateValue>
+                    </span>
+                  </div>
+                )}
+                {netWorth.tangibleAssets > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-orange-500" />
+                      Tangible Assets
+                    </span>
+                    <span className="font-medium">
+                      <PrivateValue>{formatCurrency(netWorth.tangibleAssets)}</PrivateValue>
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="border-t pt-2 flex justify-between text-sm font-medium">
                 <span>Total</span>
@@ -330,7 +329,7 @@ export function DashboardContent({
           </CardHeader>
           <CardContent className="overflow-hidden">
             {isPrivate ? (
-              <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+              <div className="flex h-75 items-center justify-center text-muted-foreground">
                 Chart hidden in private mode
               </div>
             ) : (
@@ -345,7 +344,7 @@ export function DashboardContent({
           </CardHeader>
           <CardContent className="overflow-hidden">
             {isPrivate ? (
-              <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+              <div className="flex h-75 items-center justify-center text-muted-foreground">
                 Chart hidden in private mode
               </div>
             ) : (
@@ -356,42 +355,9 @@ export function DashboardContent({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {investmentSummary && (
-          <DetailCard
-            title="Investment Funds"
-            description="Long-term investments"
-            icon={LineChart}
-            href="/investments"
-          >
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Portfolio Value</span>
-                <span className="font-medium">
-                  <PrivateValue>{formatCurrency(investmentSummary.totalValue)}</PrivateValue>
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Returns</span>
-                <span
-                  className={`font-medium ${
-                    investmentSummary.totalReturns >= 0 ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  <PrivateValue>
-                    {investmentSummary.totalReturns >= 0 ? "+" : ""}
-                    {formatCurrency(investmentSummary.totalReturns)} (
-                    {investmentSummary.totalReturnsPercent >= 0 ? "+" : ""}
-                    {investmentSummary.totalReturnsPercent.toFixed(2)}%)
-                  </PrivateValue>
-                </span>
-              </div>
-            </div>
-          </DetailCard>
-        )}
-
         {financialAssetsSummary && (
           <DetailCard
-            title="Stocks & Crypto"
+            title="Investments"
             description={`${financialAssetsSummary.assetCount} asset${financialAssetsSummary.assetCount !== 1 ? "s" : ""}`}
             icon={Coins}
             href="/financial-assets"
@@ -403,21 +369,23 @@ export function DashboardContent({
                   <PrivateValue>{formatCurrency(financialAssetsSummary.totalValue)}</PrivateValue>
                 </span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span>Gain/Loss</span>
-                <span
-                  className={`font-medium ${
-                    financialAssetsSummary.totalGainLoss >= 0 ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  <PrivateValue>
-                    {financialAssetsSummary.totalGainLoss >= 0 ? "+" : ""}
-                    {formatCurrency(financialAssetsSummary.totalGainLoss)} (
-                    {financialAssetsSummary.totalGainLossPercent >= 0 ? "+" : ""}
-                    {financialAssetsSummary.totalGainLossPercent.toFixed(2)}%)
-                  </PrivateValue>
-                </span>
-              </div>
+              {financialAssetsSummary.totalGainLoss != null && (
+                <div className="flex justify-between text-sm">
+                  <span>Gain/Loss</span>
+                  <span
+                    className={`font-medium ${
+                      financialAssetsSummary.totalGainLoss >= 0 ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    <PrivateValue>
+                      {financialAssetsSummary.totalGainLoss >= 0 ? "+" : ""}
+                      {formatCurrency(financialAssetsSummary.totalGainLoss)} (
+                      {(financialAssetsSummary.totalGainLossPercent ?? 0) >= 0 ? "+" : ""}
+                      {(financialAssetsSummary.totalGainLossPercent ?? 0).toFixed(2)}%)
+                    </PrivateValue>
+                  </span>
+                </div>
+              )}
             </div>
           </DetailCard>
         )}
@@ -427,7 +395,7 @@ export function DashboardContent({
             title="Tangible Assets"
             description={`${tangibleAssetsSummary.assetCount} asset${tangibleAssetsSummary.assetCount !== 1 ? "s" : ""}`}
             icon={Package}
-            href="/assets"
+            href="/tangible-assets"
           >
             <div className="space-y-2">
               <div className="flex justify-between text-sm">

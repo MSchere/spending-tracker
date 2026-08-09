@@ -6,10 +6,7 @@ import { Decimal } from "decimal.js";
 /**
  * PATCH /api/savings/[id] - Update a savings goal
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
 
@@ -51,10 +48,7 @@ export async function PATCH(
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Update savings goal error:", error);
-    return NextResponse.json(
-      { error: "Failed to update savings goal" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to update savings goal" }, { status: 500 });
   }
 }
 
@@ -92,9 +86,6 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete savings goal error:", error);
-    return NextResponse.json(
-      { error: "Failed to delete savings goal" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to delete savings goal" }, { status: 500 });
   }
 }

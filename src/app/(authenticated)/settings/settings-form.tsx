@@ -22,6 +22,8 @@ import {
   TrendingUp,
   Coins,
   Settings,
+  Landmark,
+  ExternalLink,
 } from "lucide-react";
 import { WiseIcon } from "@/components/icons/wise-icon";
 import { toast } from "sonner";
@@ -46,6 +48,14 @@ interface SettingsFormProps {
   wiseConfigured: boolean;
   indexaConfigured: boolean;
   alphaVantageConfigured: boolean;
+  ibkrStatus: {
+    configured: boolean;
+    gatewayUrl: string | null;
+    reachable: boolean;
+    authenticated: boolean;
+    positionsTracked: number;
+    lastUpdateAt: string | null;
+  };
 }
 
 export function SettingsForm({
@@ -55,6 +65,7 @@ export function SettingsForm({
   wiseConfigured,
   indexaConfigured,
   alphaVantageConfigured,
+  ibkrStatus,
 }: SettingsFormProps) {
   const router = useRouter();
   const { preferences, updatePreferences } = usePreferences();
@@ -253,6 +264,97 @@ export function SettingsForm({
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
+            <Landmark
+              className={`h-5 w-5 ${ibkrStatus.configured && ibkrStatus.authenticated ? "text-red-500" : "text-muted-foreground"}`}
+            />
+            <CardTitle>Interactive Brokers Integration</CardTitle>
+          </div>
+          <CardDescription>Sync positions from IBKR via the Client Portal Gateway</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Gateway</span>
+            {ibkrStatus.configured ? (
+              <Badge variant={ibkrStatus.reachable ? "default" : "destructive"}>
+                {ibkrStatus.reachable ? "Reachable" : "Unreachable"}
+              </Badge>
+            ) : (
+              <Badge variant="destructive">Not Configured</Badge>
+            )}
+          </div>
+
+          {ibkrStatus.configured && (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Gateway URL</span>
+                <a
+                  href={ibkrStatus.gatewayUrl ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  {ibkrStatus.gatewayUrl}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Session</span>
+                <Badge variant={ibkrStatus.authenticated ? "default" : "destructive"}>
+                  {ibkrStatus.authenticated ? "Authenticated" : "Login Required"}
+                </Badge>
+              </div>
+
+              {ibkrStatus.positionsTracked > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Positions Tracked</span>
+                  <span className="text-sm text-muted-foreground">
+                    {ibkrStatus.positionsTracked}
+                  </span>
+                </div>
+              )}
+
+              {ibkrStatus.lastUpdateAt && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Last Position Update</span>
+                  <span className="text-sm text-muted-foreground">
+                    {new Date(ibkrStatus.lastUpdateAt).toLocaleString(preferences.locale)}
+                  </span>
+                </div>
+              )}
+
+              {ibkrStatus.reachable && !ibkrStatus.authenticated && (
+                <p className="text-sm text-muted-foreground">
+                  The gateway is running but the brokerage session expired. Open the gateway URL
+                  above, log in with your IBKR credentials and 2FA, then sync again.
+                </p>
+              )}
+
+              {!ibkrStatus.reachable && (
+                <p className="text-sm text-muted-foreground">
+                  Cannot reach the gateway. Make sure it is running
+                  {ibkrStatus.gatewayUrl?.includes("localhost")
+                    ? " (bin/run.sh root/conf.yaml in the ibkr/ directory)"
+                    : ""}
+                  .
+                </p>
+              )}
+            </>
+          )}
+
+          {!ibkrStatus.configured && (
+            <p className="text-sm text-muted-foreground">
+              To connect Interactive Brokers, start the Client Portal Gateway from the ibkr/
+              directory and set the IBKR_GATEWAY_URL environment variable (e.g.
+              https://localhost:5000).
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
             <Coins
               className={`h-5 w-5 ${alphaVantageConfigured ? "text-gold" : "text-muted-foreground"}`}
             />
@@ -333,8 +435,8 @@ export function SettingsForm({
           <Separator />
 
           <p className="text-xs text-muted-foreground">
-            Light sync happens every 1h. Use full sync to re-fetch all
-            historical data if something is missing.
+            Light sync happens every 1h. Use full sync to re-fetch all historical data if something
+            is missing.
           </p>
         </CardContent>
       </Card>

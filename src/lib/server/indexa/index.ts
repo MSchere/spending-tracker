@@ -3,7 +3,6 @@ export {
   syncIndexaData,
   getIndexaPortfolioSummary,
   getIndexaPortfolioHistory,
-  getIndexaHoldings,
   type IndexaSyncMode,
   type IndexaSyncResult,
 } from "./sync";

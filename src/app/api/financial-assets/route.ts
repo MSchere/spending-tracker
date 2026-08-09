@@ -4,7 +4,7 @@ import {
   getFinancialAssets,
   getFinancialAssetsTotals,
   createFinancialAsset,
-  getFinancialAssetBySymbol,
+  getFinancialAssetByTicker,
   updateAssetPrice,
   getAlphaVantageClient,
   isAlphaVantageConfigured,
@@ -12,7 +12,7 @@ import {
 import { FinancialAssetType, type Currency } from "@prisma/client";
 import { db } from "@/lib/server/db";
 
-const VALID_TYPES: FinancialAssetType[] = ["STOCK", "CRYPTO", "ETF"];
+const VALID_TYPES: FinancialAssetType[] = ["STOCK", "CRYPTO", "ETF", "FUND"];
 
 /**
  * GET /api/financial-assets - Get all financial assets for the user
@@ -49,11 +49,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { symbol, name, type, shares, avgCostBasis, currency } = body;
+    const { ticker, isin, name, type, shares, avgCostBasis, currency } = body;
 
-    if (!symbol || !name || !type || shares === undefined || avgCostBasis === undefined) {
+    if (!ticker || !name || !type || shares === undefined || avgCostBasis === undefined) {
       return NextResponse.json(
-        { error: "symbol, name, type, shares, and avgCostBasis are required" },
+        { error: "ticker, name, type, shares, and avgCostBasis are required" },
         { status: 400 }
       );
     }
@@ -65,15 +65,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existing = await getFinancialAssetBySymbol(
+    const existing = await getFinancialAssetByTicker(
       session.user.id,
-      symbol,
+      ticker,
       type as FinancialAssetType
     );
 
     if (existing) {
       return NextResponse.json(
-        { error: `Asset ${symbol} (${type}) already exists. Edit the existing asset instead.` },
+        { error: `Asset ${ticker} (${type}) already exists. Edit the existing asset instead.` },
         { status: 409 }
       );
     }
@@ -86,7 +86,8 @@ export async function POST(request: NextRequest) {
 
     const asset = await createFinancialAsset({
       userId: session.user.id,
-      symbol: symbol.toUpperCase(),
+      ticker: ticker.toUpperCase(),
+      isin: typeof isin === "string" && isin.length > 0 ? isin.toUpperCase() : undefined,
       name,
       type: type as FinancialAssetType,
       shares: Number(shares),
@@ -94,22 +95,22 @@ export async function POST(request: NextRequest) {
       currency: resolvedCurrency,
     });
 
-    if (isAlphaVantageConfigured()) {
+    if (isAlphaVantageConfigured() && type !== "FUND") {
       try {
         const client = getAlphaVantageClient();
         let price: number;
 
         if (type === "CRYPTO") {
-          const quote = await client.getCryptoQuote(symbol, asset.currency);
+          const quote = await client.getCryptoQuote(ticker, asset.currency);
           price = quote.price;
         } else {
-          const quote = await client.getStockQuote(symbol, asset.currency);
+          const quote = await client.getStockQuote(ticker, asset.currency);
           price = quote.price;
         }
 
         await updateAssetPrice(asset.id, price, asset.currency);
       } catch (priceError) {
-        console.warn(`Failed to fetch initial price for ${symbol}:`, priceError);
+        console.warn(`Failed to fetch initial price for ${ticker}:`, priceError);
       }
     }
 

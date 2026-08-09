@@ -23,10 +23,7 @@ export async function GET() {
     return NextResponse.json(budgets);
   } catch (error) {
     console.error("Get budgets error:", error);
-    return NextResponse.json(
-      { error: "Failed to get budgets" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to get budgets" }, { status: 500 });
   }
 }
 
@@ -70,10 +67,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!category) {
-      return NextResponse.json(
-        { error: "Category not found" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Category not found" }, { status: 400 });
     }
 
     const budget = await db.budget.create({
@@ -91,9 +85,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(budget, { status: 201 });
   } catch (error) {
     console.error("Create budget error:", error);
-    return NextResponse.json(
-      { error: "Failed to create budget" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to create budget" }, { status: 500 });
   }
 }

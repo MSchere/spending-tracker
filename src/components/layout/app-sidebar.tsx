@@ -14,7 +14,6 @@ import {
   TrendingUp,
   RefreshCw,
   Package,
-  Coins,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { toast } from "sonner";
@@ -45,9 +44,8 @@ const navigation = [
   {
     title: "Assets",
     items: [
-      { name: "Investments", href: "/investments", icon: TrendingUp },
-      { name: "Stocks & Crypto", href: "/financial-assets", icon: Coins },
-      { name: "Tangible Assets", href: "/assets", icon: Package },
+      { name: "Financial Assets", href: "/financial-assets", icon: TrendingUp },
+      { name: "Tangible Assets", href: "/tangible-assets", icon: Package },
     ],
   },
   {

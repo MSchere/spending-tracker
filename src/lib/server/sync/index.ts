@@ -1,5 +1,6 @@
 import { syncWiseData, type SyncResult as WiseSyncResult } from "../wise";
 import { syncIndexaData, isIndexaConfigured, type IndexaSyncResult } from "../indexa";
+import { syncIbkrData, isIbkrConfigured, type IbkrSyncResult } from "../ibkr";
 import {
   isAlphaVantageConfigured,
   getAlphaVantageClient,
@@ -29,13 +30,26 @@ export async function advanceRecurringDueDates(): Promise<number> {
 
     while (isBefore(next, today)) {
       switch (item.frequency) {
-        case "WEEKLY":    next = addWeeks(next, 1);   break;
-        case "BIWEEKLY":  next = addWeeks(next, 2);   break;
-        case "MONTHLY":   next = addMonths(next, 1);  break;
-        case "BIMONTHLY": next = addMonths(next, 2);  break;
-        case "QUARTERLY": next = addQuarters(next, 1); break;
-        case "YEARLY":    next = addYears(next, 1);   break;
-        default:          next = addMonths(next, 1);
+        case "WEEKLY":
+          next = addWeeks(next, 1);
+          break;
+        case "BIWEEKLY":
+          next = addWeeks(next, 2);
+          break;
+        case "MONTHLY":
+          next = addMonths(next, 1);
+          break;
+        case "BIMONTHLY":
+          next = addMonths(next, 2);
+          break;
+        case "QUARTERLY":
+          next = addQuarters(next, 1);
+          break;
+        case "YEARLY":
+          next = addYears(next, 1);
+          break;
+        default:
+          next = addMonths(next, 1);
       }
     }
 
@@ -52,6 +66,7 @@ export interface UnifiedSyncResult {
   success: boolean;
   wise: WiseSyncResult | null;
   indexa: IndexaSyncResult | null;
+  ibkr: IbkrSyncResult | null;
   financialAssets: FinancialAssetsSyncResult | null;
   error?: string;
 }
@@ -62,6 +77,7 @@ export async function syncAllData(
 ): Promise<UnifiedSyncResult> {
   let wiseResult: WiseSyncResult | null = null;
   let indexaResult: IndexaSyncResult | null = null;
+  let ibkrResult: IbkrSyncResult | null = null;
   let financialAssetsResult: FinancialAssetsSyncResult | null = null;
   const errors: string[] = [];
 
@@ -77,7 +93,13 @@ export async function syncAllData(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     errors.push(`Wise: ${message}`);
-    wiseResult = { success: false, profilesSynced: 0, transactionsAdded: 0, balancesUpdated: 0, error: message };
+    wiseResult = {
+      success: false,
+      profilesSynced: 0,
+      transactionsAdded: 0,
+      balancesUpdated: 0,
+      error: message,
+    };
   }
 
   if (isIndexaConfigured()) {
@@ -88,6 +110,23 @@ export async function syncAllData(
       const message = error instanceof Error ? error.message : "Unknown error";
       errors.push(`Indexa: ${message}`);
       indexaResult = { success: false, accountsSynced: 0, snapshotsAdded: 0, error: message };
+    }
+  }
+
+  if (isIbkrConfigured()) {
+    try {
+      ibkrResult = await syncIbkrData(userId);
+      if (!ibkrResult.success && ibkrResult.error) errors.push(`IBKR: ${ibkrResult.error}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      errors.push(`IBKR: ${message}`);
+      ibkrResult = {
+        success: false,
+        accountsSynced: 0,
+        positionsSynced: 0,
+        skipped: 0,
+        error: message,
+      };
     }
   }
 
@@ -110,6 +149,7 @@ export async function syncAllData(
     success,
     wise: wiseResult,
     indexa: indexaResult,
+    ibkr: ibkrResult,
     financialAssets: financialAssetsResult,
     error: errors.length > 0 ? errors.join("; ") : undefined,
   };
@@ -119,14 +159,23 @@ export function formatSyncSummary(result: UnifiedSyncResult): string {
   const parts: string[] = [];
 
   if (result.wise) {
-    parts.push(`Wise: ${result.wise.transactionsAdded} transactions, ${result.wise.balancesUpdated} balances`);
+    parts.push(
+      `Wise: ${result.wise.transactionsAdded} transactions, ${result.wise.balancesUpdated} balances`
+    );
   }
   if (result.indexa) {
-    parts.push(`Indexa: ${result.indexa.accountsSynced} accounts, ${result.indexa.snapshotsAdded} snapshots`);
+    parts.push(
+      `Indexa: ${result.indexa.accountsSynced} accounts, ${result.indexa.snapshotsAdded} snapshots`
+    );
+  }
+  if (result.ibkr) {
+    parts.push(`IBKR: ${result.ibkr.positionsSynced} positions`);
   }
   if (result.financialAssets) {
     if (result.financialAssets.updated > 0) {
-      parts.push(`Prices: ${result.financialAssets.updated}/${result.financialAssets.total} updated`);
+      parts.push(
+        `Prices: ${result.financialAssets.updated}/${result.financialAssets.total} updated`
+      );
     } else if (result.financialAssets.total > 0 && result.financialAssets.errors?.length) {
       parts.push(`Prices: sync failed`);
     }

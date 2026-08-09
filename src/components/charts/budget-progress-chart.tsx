@@ -38,7 +38,7 @@ export function BudgetProgressChart({ data }: BudgetProgressChartProps) {
 
   if (data.length === 0) {
     return (
-      <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+      <div className="flex h-75 items-center justify-center text-muted-foreground">
         No budgets configured
       </div>
     );
@@ -48,7 +48,7 @@ export function BudgetProgressChart({ data }: BudgetProgressChartProps) {
   const sortedData = [...data].sort((a, b) => b.percentage - a.percentage).slice(0, 6);
 
   return (
-    <ChartContainer config={chartConfig} className="h-[300px] w-full">
+    <ChartContainer config={chartConfig} className="h-75 w-full">
       <BarChart
         data={sortedData}
         layout="vertical"

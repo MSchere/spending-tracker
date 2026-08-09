@@ -6,7 +6,8 @@ A self-hosted personal finance dashboard with automatic expense tracking, invest
 
 - **Wise Integration**: Automatically sync transactions from your Wise account
 - **Indexa Capital Integration**: Track your Indexa Capital investment portfolios
-- **Financial Assets**: Track stocks, ETFs, and crypto with real-time prices via Alpha Vantage API & CoinGecko API
+- **Interactive Brokers Integration**: Sync positions from IBKR via the Client Portal Web API gateway
+- **Financial Assets**: Unified portfolio view (funds, stocks, ETFs, crypto) with allocation, evolution, and per-source breakdown. Manual assets get real-time prices via Alpha Vantage API & CoinGecko API
 - **Tangible Assets**: Track physical assets (vehicles, electronics, real estate) with depreciation calculations
 - **Manual Transactions**: Add transactions manually for cash expenses, benefits, meal vouchers, etc.
 - **Transaction Management**: View, search, filter, and categorize transactions
@@ -71,6 +72,9 @@ INDEXA_API_TOKEN="your-indexa-token"
 
 # Alpha Vantage (optional — for stocks/crypto prices)
 ALPHA_VANTAGE_API_KEY="your-api-key"
+
+# Interactive Brokers (optional — requires the Client Portal Gateway, see below)
+IBKR_GATEWAY_URL="https://localhost:5000"
 ```
 
 ### 3. Initialize Database
@@ -91,9 +95,75 @@ Visit [http://localhost:3000](http://localhost:3000)
 
 ## Deployment
 
+Two deployment options: **Docker Compose** (simplest, includes the IBKR gateway) or **manual standalone + systemd** (e.g. NixOS).
+
+> **Migrating an existing standalone/NixOS production deployment to Docker?**
+> Follow [docs/migration-to-docker.md](docs/migration-to-docker.md) — it covers importing the production database and baselining the Prisma migration history.
+
+### Option A: Docker Compose (recommended)
+
+The compose stack runs three services: a one-shot `migrate` container (applies Prisma migrations), the `app` (Next.js standalone), and the `ibkr-gateway` (Client Portal Gateway sidecar).
+
+```bash
+# On the server
+git clone https://github.com/MSchere/spending-tracker.git
+cd spending-tracker
+cp .env.example .env   # fill in values (NEXTAUTH_SECRET, ENCRYPTION_KEY, WISE_API_TOKEN, ...)
+
+# Create the data directory (SQLite lives here; containers run as uid 1001)
+sudo mkdir -p /var/lib/spending-tracker/data
+sudo chown -R 1001:1001 /var/lib/spending-tracker/data
+
+docker compose up -d --build
+```
+
+- App: `http://<server>:${APP_PORT:-3000}`
+- SQLite lives in the bind-mounted `DATA_DIR` (default `/var/lib/spending-tracker/data`); gateway logs in the `ibkr-logs` volume.
+- The app talks to the gateway at `https://ibkr-gateway:5000` (set automatically in compose).
+- Useful overrides: `DATA_DIR`, `APP_PORT`, `IBKR_PORT`, `TZ` (default `Europe/Madrid`).
+
+> Building images on the server is fine with Docker (the NixOS note below only applies to bare-metal builds).
+
+### IBKR Gateway (Interactive Brokers)
+
+The IBKR Web API requires the official **Client Portal Gateway**. The gateway binaries are **not committed** to the repo — the Docker image downloads them from IBKR at build time, and for local dev you fetch them once:
+
+```bash
+./ibkr/fetch-gateway.sh   # downloads & extracts the gateway into ibkr/
+cd ibkr && bin/run.sh root/conf.yaml
+```
+
+Only our customized `ibkr/root/conf.yaml` (Docker-network IPs allowed) is tracked in git. Key facts:
+
+- Serves a self-signed HTTPS API on port `5000` and proxies `api.ibkr.com`.
+- After (re)starting the gateway, you must **log in once interactively**: open `https://<server>:5000` in a browser, accept the certificate warning, and complete the IBKR login + 2FA. Sessions last roughly 24h — when syncs start failing with authentication errors, just log in again.
+- The app degrades gracefully: if the gateway is down or unauthenticated, IBKR positions keep their last synced values and a banner appears on the Financial Assets page.
+
+Running it without Docker (e.g. on a NixOS/systemd host), after fetching the binaries as shown above:
+
+A minimal systemd unit:
+
+```ini
+[Unit]
+Description=IBKR Client Portal Gateway
+After=network.target
+
+[Service]
+WorkingDirectory=/var/lib/spending-tracker/ibkr
+ExecStart=/var/lib/spending-tracker/ibkr/bin/run.sh root/conf.yaml
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Set `IBKR_GATEWAY_URL="https://localhost:5000"` in the app environment when the gateway runs on the same host.
+
+### Option B: Standalone + systemd (NixOS)
+
 > **Note:** `prisma generate` requires downloading native engine binaries which are unavailable on some platforms (e.g. NixOS). Always **build on your dev machine** and deploy the compiled artifacts — never build on the production server.
 
-### 1. Build on dev
+#### 1. Build on dev
 
 ```bash
 git pull
@@ -105,7 +175,7 @@ cp -r .next/static .next/standalone/.next/
 cp -r public .next/standalone/
 ```
 
-### 2. Deploy to server
+#### 2. Deploy to server
 
 ```bash
 rsync -av --delete .next/standalone/ user@your-server:/var/lib/spending-tracker/app/.next/standalone/
@@ -114,7 +184,7 @@ ssh user@your-server "systemctl restart spending-tracker"
 
 Replace `user@your-server` with your actual SSH user and host/IP. Use `--rsync-path="sudo rsync"` if your user needs sudo to write to the target directory.
 
-### 3. Database
+#### 3. Database
 
 The SQLite database lives outside the standalone bundle and persists across deploys. Set `DATABASE_URL` to an **absolute path** in your service environment so it resolves correctly regardless of the working directory:
 
@@ -147,32 +217,24 @@ pnpm db:seed
 
 ### NixOS
 
-The `nix/configuration.nix` module in this repo configures the full NixOS service. Key points:
+`nix/spending-tracker.nix` is a drop-in NixOS module for the **Docker-based** deployment: it enables Docker, generates the compose `.env` from the agenix secret, manages the data directory permissions, runs the stack via a systemd unit, and keeps the nginx reverse proxy. Import it from your `configuration.nix`:
+
+```nix
+imports = [ /var/lib/spending-tracker/app/nix/spending-tracker.nix ];
+```
+
+After updating: `sudo nixos-rebuild switch`. See [docs/migration-to-docker.md](docs/migration-to-docker.md) for migrating an existing standalone deployment.
+
+<details>
+<summary>Legacy standalone+systemd notes (pre-Docker)</summary>
 
 - The systemd service runs `node server.js` from `.next/standalone`
 - `DATABASE_URL` must be an absolute path (relative paths resolve against the working directory)
 - No Postgres dependency — remove `requires = ["postgresql.service"]` from the service unit
 - The database file and the standalone bundle are separate; rsync only touches the bundle
+- `prisma generate` can't run on NixOS — build on a dev machine and rsync the standalone bundle
 
-```nix
-let
-  appDir = "/var/lib/spending-tracker/app";
-  dataDir = "/var/lib/spending-tracker";
-in {
-  systemd.services.spending-tracker = {
-    environment = {
-      DATABASE_URL = "file:${dataDir}/app/prisma/spending.db";
-      # ... other env vars
-    };
-    script = ''
-      cd ${appDir}/.next/standalone
-      exec ${pkgs.nodejs_24}/bin/node server.js
-    '';
-  };
-}
-```
-
-After updating the NixOS config: `sudo nixos-rebuild switch`.
+</details>
 
 ## Migrating from PostgreSQL
 
@@ -198,27 +260,32 @@ Write a quick script or use `psql` to export and re-import, handling the type co
 
 ## Available Scripts
 
-| Command             | Description                                   |
-| ------------------- | --------------------------------------------- |
-| `pnpm dev`          | Start development server (Turbopack)          |
-| `pnpm build`        | Build for production                          |
-| `pnpm start`        | Start production server                       |
-| `pnpm lint`         | Run ESLint                                    |
-| `pnpm format`       | Format code with Prettier                     |
-| `pnpm format:check` | Check formatting                              |
-| `pnpm typecheck`    | Run TypeScript type checking                  |
-| `pnpm db:generate`  | Generate Prisma client                        |
-| `pnpm db:migrate`   | Run database migrations (creates SQLite file) |
-| `pnpm db:push`      | Push schema changes without a migration file  |
-| `pnpm db:studio`    | Open Prisma Studio                            |
-| `pnpm db:seed`      | Seed default categories                       |
+| Command               | Description                                   |
+| --------------------- | --------------------------------------------- |
+| `pnpm dev`            | Start development server (Turbopack)          |
+| `pnpm build`          | Build for production                          |
+| `pnpm start`          | Start production server                       |
+| `pnpm lint`           | Run ESLint                                    |
+| `pnpm format`         | Format code with Prettier                     |
+| `pnpm format:check`   | Check formatting                              |
+| `pnpm typecheck`      | Run TypeScript type checking                  |
+| `pnpm db:generate`    | Generate Prisma client                        |
+| `pnpm db:migrate`     | Run database migrations (creates SQLite file) |
+| `pnpm db:push`        | Push schema changes without a migration file  |
+| `pnpm db:studio`      | Open Prisma Studio                            |
+| `pnpm db:seed`        | Seed default categories                       |
+| `pnpm test:migration` | Test migrations against a DB copy (safe)      |
 
 ## Project Structure
 
 ```
 spending-tracker/
+├── ibkr/                       # IBKR gateway: Dockerfile + conf.yaml (binaries fetched at build time)
 ├── nix/                        # NixOS deployment configuration
-│   └── configuration.nix       # NixOS module for LXC/server deployment
+│   └── spending-tracker.nix    # NixOS module (Docker-based deployment)
+├── docs/
+│   └── migration-to-docker.md  # Production migration runbook
+├── scripts/                    # Migration test harness (test:migration)
 ├── prisma/
 │   ├── schema.prisma           # Database schema (SQLite)
 │   ├── migrations/             # Prisma migration history
@@ -229,27 +296,30 @@ spending-tracker/
 │   │   ├── (authenticated)/    # Protected pages
 │   │   │   ├── dashboard/
 │   │   │   ├── transactions/
-│   │   │   ├── investments/        # Indexa Capital portfolios
-│   │   │   ├── financial-assets/   # Stocks, ETFs, crypto
-│   │   │   ├── assets/             # Tangible assets
+│   │   │   ├── financial-assets/   # Unified portfolio (funds, stocks, ETFs, crypto)
+│   │   │   ├── investments/        # Redirects to /financial-assets
+│   │   │   ├── tangible-assets/    # Physical assets & depreciation
 │   │   │   ├── budgets/
 │   │   │   ├── savings/
 │   │   │   ├── recurring/
 │   │   │   └── settings/
 │   │   └── api/                # API routes
 │   ├── components/
-│   │   ├── charts/             # Dashboard chart components
+│   │   ├── charts/             # Chart components
 │   │   ├── icons/              # Custom icons
 │   │   ├── layout/             # Layout components
 │   │   ├── providers/          # Context providers
 │   │   └── ui/                 # ShadCN UI components
+│   ├── hooks/                  # Shared React hooks (use-table-sort, ...)
 │   └── lib/
 │       ├── server/             # Server-side utilities
-│       │   ├── alphavantage/   # Alpha Vantage API client
+│       │   ├── alphavantage/   # Alpha Vantage client + FinancialAsset queries
 │       │   ├── assets/         # Tangible assets & depreciation
 │       │   ├── auth/           # NextAuth configuration
 │       │   ├── db/             # Prisma client
-│       │   ├── indexa/         # Indexa Capital API client
+│       │   ├── ibkr/           # IBKR Client Portal API client & sync
+│       │   ├── indexa/         # Indexa Capital API client & sync
+│       │   ├── portfolio/      # Unified portfolio overview/history queries
 │       │   ├── sync/           # Unified sync orchestrator
 │       │   └── wise/           # Wise API client & sync
 │       └── utils/              # Shared utilities
@@ -260,8 +330,8 @@ spending-tracker/
 
 1. Register an account at `/register`
 2. Set up 2FA (mandatory) — scan the QR code with any authenticator app
-3. Go to **Settings** and configure your API integrations
-4. Click **Sync Now** to import transactions
+3. Go to **Settings** to verify your integrations are connected (they are configured via environment variables)
+4. Click **Sync Data** in the sidebar to import transactions & positions
 5. View your dashboard!
 
 ## Updating

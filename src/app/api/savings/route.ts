@@ -22,10 +22,7 @@ export async function GET() {
     return NextResponse.json(savingsGoals);
   } catch (error) {
     console.error("Get savings goals error:", error);
-    return NextResponse.json(
-      { error: "Failed to get savings goals" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to get savings goals" }, { status: 500 });
   }
 }
 
@@ -66,9 +63,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(goal, { status: 201 });
   } catch (error) {
     console.error("Create savings goal error:", error);
-    return NextResponse.json(
-      { error: "Failed to create savings goal" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to create savings goal" }, { status: 500 });
   }
 }

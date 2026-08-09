@@ -301,8 +301,7 @@ export async function syncWiseData(
             transactionsAdded++;
           }
         }
-      } catch {
-      }
+      } catch {}
 
       await db.wiseProfile.update({
         where: { id: profile.id },

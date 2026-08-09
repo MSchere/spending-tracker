@@ -33,7 +33,9 @@ export async function POST() {
     });
     const currency = preferences?.currency ?? "EUR";
 
-    const assets = await getFinancialAssets(session.user.id);
+    // Only manual assets get prices from Alpha Vantage; INDEXA/IBKR assets
+    // are priced by their own integrations.
+    const assets = await getFinancialAssets(session.user.id, { source: "MANUAL" });
 
     if (assets.length === 0) {
       return NextResponse.json({ updated: 0, message: "No assets to sync" });
@@ -50,11 +52,11 @@ export async function POST() {
 
         if (asset.type === "CRYPTO") {
           // Crypto: fetch in user's preferred currency
-          const quote = await client.getCryptoQuote(asset.symbol, currency);
+          const quote = await client.getCryptoQuote(asset.ticker, currency);
           price = quote.price;
         } else {
           // STOCK or ETF: fetch and convert to user's preferred currency
-          const quote = await client.getStockQuote(asset.symbol, currency);
+          const quote = await client.getStockQuote(asset.ticker, currency);
           price = quote.price;
         }
 
@@ -62,7 +64,7 @@ export async function POST() {
         updated++;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
-        errors.push(`${asset.symbol}: ${message}`);
+        errors.push(`${asset.ticker}: ${message}`);
 
         // If rate limited, stop processing
         if (message.includes("Rate limit")) {

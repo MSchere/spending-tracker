@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -12,6 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { useTableSort } from "@/hooks/use-table-sort";
 import {
   Select,
   SelectContent,
@@ -36,7 +38,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Combobox } from "@/components/ui/combobox";
 import {
   Search,
-  ArrowUpDown,
   Loader2,
   ChevronLeft,
   ChevronRight,
@@ -99,9 +100,6 @@ interface TransactionsListProps {
   };
 }
 
-type SortField = "date" | "amount" | "description";
-type SortOrder = "asc" | "desc";
-
 export function TransactionsList({
   transactions,
   categories,
@@ -114,8 +112,6 @@ export function TransactionsList({
   const [typeFilter, setTypeFilter] = useState<string>(initialFilters.type);
   const [categoryFilter, setCategoryFilter] = useState<string>(initialFilters.category);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [sortField, setSortField] = useState<SortField>("date");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
@@ -155,7 +151,7 @@ export function TransactionsList({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
   function updateFilters(updates: { page?: number; type?: string; category?: string }) {
@@ -190,34 +186,29 @@ export function TransactionsList({
     router.push(`/transactions?${params.toString()}`);
   }
 
-  const filteredTransactions = useMemo(() => {
-    const result = [...transactions];
-    result.sort((a, b) => {
-      let comparison = 0;
-      switch (sortField) {
+  const {
+    sorted: filteredTransactions,
+    sortKey,
+    sortDir,
+    toggleSort,
+  } = useTableSort<Transaction, "date" | "description" | "amount">(
+    transactions,
+    (t, key): string | number | null => {
+      switch (key) {
         case "date":
-          comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
-          break;
-        case "amount":
-          comparison = a.amountEur - b.amountEur;
-          break;
+          return new Date(t.date).getTime();
         case "description":
-          comparison = a.description.localeCompare(b.description);
-          break;
+          return t.description.toLowerCase();
+        case "amount":
+          return t.amountEur;
+        default:
+          return null;
       }
-      return sortOrder === "asc" ? comparison : -comparison;
-    });
-    return result;
-  }, [transactions, sortField, sortOrder]);
-
-  function toggleSort(field: SortField) {
-    if (sortField === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortOrder("desc");
-    }
-  }
+    },
+    "date",
+    "desc",
+    { ascColumns: ["description"] }
+  );
 
   function openEditDialog(transaction: Transaction) {
     setEditingTransaction(transaction);
@@ -325,7 +316,7 @@ export function TransactionsList({
 
         <div className="flex flex-wrap gap-2">
           <Select value={typeFilter} onValueChange={handleTypeChange}>
-            <SelectTrigger className="w-full sm:w-[150px]">
+            <SelectTrigger className="w-full sm:w-37.5">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
@@ -351,7 +342,7 @@ export function TransactionsList({
             placeholder="Category"
             searchPlaceholder="Search categories..."
             emptyText="No category found."
-            className="w-full sm:w-[180px]"
+            className="w-full sm:w-45"
           />
 
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -461,39 +452,28 @@ export function TransactionsList({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="-ml-3 h-8"
-                  onClick={() => toggleSort("date")}
-                >
-                  Date
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="-ml-3 h-8"
-                  onClick={() => toggleSort("description")}
-                >
-                  Description
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead className="text-right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="-mr-3 h-8"
-                  onClick={() => toggleSort("amount")}
-                >
-                  Amount
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
+              <SortableTableHead
+                label="Date"
+                column="date"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                label="Description"
+                column="description"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                label="Amount"
+                column="amount"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="text-right"
+              />
               <TableHead>Category</TableHead>
             </TableRow>
           </TableHeader>

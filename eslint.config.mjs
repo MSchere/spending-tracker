@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // IBKR Client Portal Gateway (third-party Java binary + bundled JS demo app)
+    "ibkr/**",
   ]),
 ]);
 

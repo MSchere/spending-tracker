@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
           error: result.error || "Sync failed",
           wise: result.wise,
           indexa: result.indexa,
+          ibkr: result.ibkr,
           financialAssets: result.financialAssets,
         },
         { status: 500 }
@@ -63,6 +64,13 @@ export async function POST(request: NextRequest) {
         ? {
             accountsSynced: result.indexa.accountsSynced,
             snapshotsAdded: result.indexa.snapshotsAdded,
+          }
+        : null,
+      ibkr: result.ibkr
+        ? {
+            accountsSynced: result.ibkr.accountsSynced,
+            positionsSynced: result.ibkr.positionsSynced,
+            skipped: result.ibkr.skipped,
           }
         : null,
       financialAssets: result.financialAssets

@@ -3,6 +3,7 @@ import { db } from "@/lib/server/db";
 import { SettingsForm } from "./settings-form";
 import { isIndexaConfigured } from "@/lib/server/indexa";
 import { isAlphaVantageConfigured } from "@/lib/server/alphavantage";
+import { isIbkrConfigured, getIbkrClient, getIbkrGatewayUrl } from "@/lib/server/ibkr";
 
 async function getSettingsData(userId: string) {
   const user = await db.user.findUnique({
@@ -23,6 +24,26 @@ async function getSettingsData(userId: string) {
     orderBy: { createdAt: "desc" },
   });
 
+  // IBKR gateway/session status (never throws — gateway may be down)
+  const ibkrConfigured = isIbkrConfigured();
+  let ibkrReachable = false;
+  let ibkrAuthenticated = false;
+  if (ibkrConfigured) {
+    try {
+      const status = await getIbkrClient().getAuthStatus();
+      ibkrReachable = true;
+      ibkrAuthenticated = status.authenticated;
+    } catch {
+      ibkrReachable = false;
+    }
+  }
+
+  const ibkrAssetStats = await db.financialAsset.aggregate({
+    where: { userId, source: "IBKR" },
+    _count: { id: true },
+    _max: { lastPriceAt: true },
+  });
+
   return {
     user,
     appSettings: appSettings
@@ -35,6 +56,14 @@ async function getSettingsData(userId: string) {
     wiseConfigured: !!process.env.WISE_API_TOKEN,
     indexaConfigured: isIndexaConfigured(),
     alphaVantageConfigured: isAlphaVantageConfigured(),
+    ibkrStatus: {
+      configured: ibkrConfigured,
+      gatewayUrl: getIbkrGatewayUrl(),
+      reachable: ibkrReachable,
+      authenticated: ibkrAuthenticated,
+      positionsTracked: ibkrAssetStats._count.id,
+      lastUpdateAt: ibkrAssetStats._max.lastPriceAt?.toISOString() ?? null,
+    },
   };
 }
 
@@ -52,6 +81,7 @@ export default async function SettingsPage() {
     wiseConfigured,
     indexaConfigured,
     alphaVantageConfigured,
+    ibkrStatus,
   } = await getSettingsData(session.user.id);
 
   return (
@@ -68,6 +98,7 @@ export default async function SettingsPage() {
         wiseConfigured={wiseConfigured}
         indexaConfigured={indexaConfigured}
         alphaVantageConfigured={alphaVantageConfigured}
+        ibkrStatus={ibkrStatus}
       />
     </div>
   );

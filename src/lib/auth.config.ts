@@ -55,8 +55,7 @@ export const authConfig: NextAuthConfig = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.email = token.email as string;
-        session.user.twoFactorEnabled =
-          (token.twoFactorEnabled ?? false) as boolean;
+        session.user.twoFactorEnabled = (token.twoFactorEnabled ?? false) as boolean;
       }
       return session;
     },
@@ -75,13 +74,9 @@ export const authConfig: NextAuthConfig = {
 
       const authRoutes = ["/login", "/register"];
 
-      const isProtectedRoute = protectedRoutes.some((route) =>
-        pathname.startsWith(route)
-      );
+      const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
 
-      const isAuthRoute = authRoutes.some((route) =>
-        pathname.startsWith(route)
-      );
+      const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
       // Protect routes
       if (isProtectedRoute && !isLoggedIn) {

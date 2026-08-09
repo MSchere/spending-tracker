@@ -188,7 +188,7 @@ export function AssetsContent({ initialAssets, initialTotals }: AssetsContentPro
         salvageValue: salvageValue ? parseFloat(salvageValue) : undefined,
       };
 
-      const url = editingAsset ? `/api/assets/${editingAsset.id}` : "/api/assets";
+      const url = editingAsset ? `/api/tangible-assets/${editingAsset.id}` : "/api/tangible-assets";
       const method = editingAsset ? "PUT" : "POST";
 
       const response = await fetch(url, {
@@ -217,7 +217,7 @@ export function AssetsContent({ initialAssets, initialTotals }: AssetsContentPro
     setDeletingId(id);
 
     try {
-      const response = await fetch(`/api/assets/${id}`, {
+      const response = await fetch(`/api/tangible-assets/${id}`, {
         method: "DELETE",
       });
 
