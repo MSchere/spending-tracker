@@ -3,7 +3,7 @@ import { db } from "@/lib/server/db";
 import { SettingsForm } from "./settings-form";
 import { isIndexaConfigured } from "@/lib/server/indexa";
 import { isAlphaVantageConfigured } from "@/lib/server/alphavantage";
-import { isIbkrConfigured, getIbkrClient, getIbkrGatewayUrl } from "@/lib/server/ibkr";
+import { isIbkrConfigured, getIbkrClient, getIbkrGatewayPublicUrl } from "@/lib/server/ibkr";
 
 async function getSettingsData(userId: string) {
   const user = await db.user.findUnique({
@@ -58,7 +58,7 @@ async function getSettingsData(userId: string) {
     alphaVantageConfigured: isAlphaVantageConfigured(),
     ibkrStatus: {
       configured: ibkrConfigured,
-      gatewayUrl: getIbkrGatewayUrl(),
+      gatewayUrl: getIbkrGatewayPublicUrl(),
       reachable: ibkrReachable,
       authenticated: ibkrAuthenticated,
       positionsTracked: ibkrAssetStats._count.id,

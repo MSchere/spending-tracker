@@ -90,6 +90,7 @@ interface Integrations {
   indexa: boolean;
   ibkr: boolean;
   ibkrAuthenticated: boolean;
+  ibkrGatewayUrl: string | null;
 }
 
 interface FinancialAssetsContentProps {
@@ -370,9 +371,20 @@ export function FinancialAssetsContent({
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            IBKR gateway session expired or unreachable. Open the gateway URL (
-            {typeof window !== "undefined" ? "https://localhost:5000" : "gateway"}) in a browser and
-            log in again, then sync.
+            IBKR gateway session expired or unreachable. Open{" "}
+            {integrations.ibkrGatewayUrl ? (
+              <a
+                href={integrations.ibkrGatewayUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium underline"
+              >
+                {integrations.ibkrGatewayUrl}
+              </a>
+            ) : (
+              "the IBKR gateway"
+            )}{" "}
+            in a browser and log in again, then sync.
           </AlertDescription>
         </Alert>
       )}

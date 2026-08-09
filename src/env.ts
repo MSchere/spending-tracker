@@ -35,6 +35,10 @@ export const env = createEnv({
     // IBKR Client Portal Gateway (optional - for Interactive Brokers positions)
     // URL of the locally running gateway (self-signed HTTPS, e.g. https://localhost:5000)
     IBKR_GATEWAY_URL: z.string().url().optional(),
+    // Browser-reachable URL of the gateway (for re-login links in the UI).
+    // Falls back to IBKR_GATEWAY_URL; set this when the app runs in Docker and
+    // IBKR_GATEWAY_URL points at the internal service name.
+    IBKR_GATEWAY_PUBLIC_URL: z.string().url().optional(),
   },
 
   /**
@@ -61,6 +65,7 @@ export const env = createEnv({
     INDEXA_DOCUMENT: process.env.INDEXA_DOCUMENT,
     ALPHA_VANTAGE_API_KEY: process.env.ALPHA_VANTAGE_API_KEY,
     IBKR_GATEWAY_URL: process.env.IBKR_GATEWAY_URL,
+    IBKR_GATEWAY_PUBLIC_URL: process.env.IBKR_GATEWAY_PUBLIC_URL,
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
   },
 

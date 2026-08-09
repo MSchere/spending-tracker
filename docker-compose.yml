@@ -38,6 +38,8 @@ services:
       INDEXA_DOCUMENT: ${INDEXA_DOCUMENT:-}
       ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
       IBKR_GATEWAY_URL: https://ibkr-gateway:5000
+      # Browser-facing URL for re-login links (e.g. https://192.168.10.150:5000)
+      IBKR_GATEWAY_PUBLIC_URL: ${IBKR_GATEWAY_PUBLIC_URL:-}
     volumes:
       - ${DATA_DIR:-/var/lib/spending-tracker/data}:/app/data
     restart: unless-stopped

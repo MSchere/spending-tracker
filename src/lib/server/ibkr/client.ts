@@ -184,3 +184,11 @@ export function isIbkrConfigured(): boolean {
 export function getIbkrGatewayUrl(): string | null {
   return env.IBKR_GATEWAY_URL ?? null;
 }
+
+/**
+ * Browser-reachable gateway URL for re-login links in the UI.
+ * Falls back to the internal gateway URL when no public one is configured.
+ */
+export function getIbkrGatewayPublicUrl(): string | null {
+  return env.IBKR_GATEWAY_PUBLIC_URL ?? env.IBKR_GATEWAY_URL ?? null;
+}
