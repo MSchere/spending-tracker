@@ -27,7 +27,7 @@ const SECRETS_FILE = process.env.SECRETS_FILE || "/run/agenix/spending-tracker";
 const CHECK_INTERVAL_MS =
   (parseInt(process.env.CHECK_INTERVAL_MIN || "10", 10) || 10) * 60 * 1000;
 const LOGIN_TIMEOUT_MS =
-  (parseInt(process.env.LOGIN_TIMEOUT_SEC || "240", 10) || 240) * 1000;
+  (parseInt(process.env.LOGIN_TIMEOUT_SEC || "300", 10) || 300) * 1000;
 const FAIL_BACKOFF_MS = 30 * 60 * 1000; // after a failed login attempt
 
 const MODE = process.argv[2] === "--check" ? "check"
@@ -150,6 +150,16 @@ async function fillAndSubmit(page, username, password) {
   await pwdInputs[0].press("Enter");
 }
 
+// Resolve after ms, or reject if the promise never settles (hangs)
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 async function loginOnce(username, password) {
   const browser = await chromium.launch({ headless: true });
   try {
@@ -160,19 +170,38 @@ async function loginOnce(username, password) {
     const page = await context.newPage();
 
     log("Opening", GATEWAY_URL);
-    await page.goto(GATEWAY_URL + "/", { waitUntil: "domcontentloaded", timeout: 60000 });
+    await withTimeout(
+      page.goto(GATEWAY_URL + "/", { waitUntil: "domcontentloaded", timeout: 60000 }),
+      70000,
+      "page.goto"
+    );
 
     log("Filling credentials");
-    await fillAndSubmit(page, username, password);
+    await withTimeout(fillAndSubmit(page, username, password), 30000, "fillAndSubmit");
 
     // The 2FA (IB Key push) is approved on the phone — poll the session state.
+    // The loop is guaranteed to terminate: the deadline check AND a wall-clock
+    // race both bound it, so a stuck authStatus() can never freeze the script.
     log(`Waiting for 2FA approval on your phone (up to ${LOGIN_TIMEOUT_MS / 1000}s)...`);
     const deadline = Date.now() + LOGIN_TIMEOUT_MS;
     let status = { authenticated: false };
-    while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 5000));
-      status = await authStatus();
-      if (status.authenticated) break;
+    try {
+      status = await withTimeout(
+        (async () => {
+          let current = { authenticated: false };
+          while (Date.now() < deadline) {
+            await new Promise((r) => setTimeout(r, 3000));
+            current = await authStatus();
+            if (current.authenticated) break;
+          }
+          return current;
+        })(),
+        LOGIN_TIMEOUT_MS + 20000,
+        "2FA polling"
+      );
+    } catch (err) {
+      log("Polling aborted:", err.message);
+      status = { authenticated: false };
     }
 
     if (status.authenticated) {
@@ -180,10 +209,15 @@ async function loginOnce(username, password) {
       return true;
     }
 
-    log("❌ Login did not complete within timeout. Page URL:", page.url());
+    log("❌ Login did not complete within timeout.");
+    try {
+      log("Page URL:", await withTimeout(page.url(), 5000, "page.url"));
+    } catch {}
     const shot = "/tmp/ibkr-login-debug.png";
-    await page.screenshot({ path: shot, fullPage: true }).catch(() => {});
-    log("Screenshot saved to", shot);
+    try {
+      await withTimeout(page.screenshot({ path: shot, fullPage: true }), 8000, "screenshot");
+      log("Screenshot saved to", shot);
+    } catch {}
     return false;
   } finally {
     await closeBrowser(browser);
