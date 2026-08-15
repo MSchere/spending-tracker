@@ -75,6 +75,8 @@ ALPHA_VANTAGE_API_KEY="your-api-key"
 
 # Interactive Brokers (optional — requires the Client Portal Gateway, see below)
 IBKR_GATEWAY_URL="https://localhost:5000"
+# Browser-facing gateway URL for re-login links in the UI (Docker deployments)
+# IBKR_GATEWAY_PUBLIC_URL="https://192.168.10.150:5000"
 ```
 
 ### 3. Initialize Database
@@ -102,7 +104,7 @@ Two deployment options: **Docker Compose** (simplest, includes the IBKR gateway)
 
 ### Option A: Docker Compose (recommended)
 
-The compose stack runs three services: a one-shot `migrate` container (applies Prisma migrations), the `app` (Next.js standalone), and the `ibkr-gateway` (Client Portal Gateway sidecar).
+The compose stack runs four services: a one-shot `migrate` container (applies Prisma migrations), the `app` (Next.js standalone), the `ibkr-gateway` (Client Portal Gateway sidecar), and `ibkr-login` (headless auto-login watchdog for the gateway).
 
 ```bash
 # On the server
@@ -133,11 +135,21 @@ The IBKR Web API requires the official **Client Portal Gateway**. The gateway bi
 cd ibkr && bin/run.sh root/conf.yaml
 ```
 
-Only our customized `ibkr/root/conf.yaml` (Docker-network IPs allowed) is tracked in git. Key facts:
+Only our customized `ibkr/root/conf.yaml` is tracked in git (docker-network IPs allowed). Key facts:
 
-- Serves a self-signed HTTPS API on port `5000` and proxies `api.ibkr.com`.
-- After (re)starting the gateway, you must **log in once interactively**: open `https://<server>:5000` in a browser, accept the certificate warning, and complete the IBKR login + 2FA. Sessions last roughly 24h — when syncs start failing with authentication errors, just log in again.
+- Serves a self-signed HTTPS API on port `5000` and proxies `api.ibkr.com`. Sessions last roughly 24h.
 - The app degrades gracefully: if the gateway is down or unauthenticated, IBKR positions keep their last synced values and a banner appears on the Financial Assets page.
+
+**Auto-login watchdog (`ibkr-login` service):** the headless Chromium watchdog keeps the session alive automatically. It reads `IBKR_USERNAME`/`IBKR_PASSWORD` from the agenix secrets file (default `/run/agenix/spending-tracker`, age-encrypted at rest) and re-logs-in whenever the session expires. The only manual step is **tapping the IB Key push** on your phone — roughly once a day. See `scripts/ibkr-login/`.
+
+**Security:** the gateway port is bound **host-only** (`127.0.0.1:5000`) — it is not reachable from the LAN or internet. The app reaches it over the internal Docker network; manual re-logins go through an SSH tunnel (IBKR's SSO flow only accepts `localhost` origins):
+
+```bash
+ssh -N -L 5000:127.0.0.1:5000 root@<server>
+# then open https://localhost:5000 in a browser
+```
+
+**UI re-login links:** when the app runs in Docker, `IBKR_GATEWAY_URL` points at the internal service name. Set `IBKR_GATEWAY_PUBLIC_URL` to the browser-facing gateway URL (e.g. `https://192.168.10.150:5000`) so the settings page and banners link somewhere reachable.
 
 Running it without Docker (e.g. on a NixOS/systemd host), after fetching the binaries as shown above:
 
@@ -281,6 +293,7 @@ Write a quick script or use `psql` to export and re-import, handling the type co
 ```
 spending-tracker/
 ├── ibkr/                       # IBKR gateway: Dockerfile + conf.yaml (binaries fetched at build time)
+├── scripts/ibkr-login/         # Headless gateway auto-login watchdog (Docker)
 ├── nix/                        # NixOS deployment configuration
 │   └── spending-tracker.nix    # NixOS module (Docker-based deployment)
 ├── docs/
