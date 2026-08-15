@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/table";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useTableSort } from "@/hooks/use-table-sort";
-import { ArrowDownIcon, ArrowUpIcon, CalendarClock, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, CalendarClock, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -112,6 +112,7 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<RecurringItem | null>(null);
 
   // Form state
   const [name, setName] = useState("");
@@ -128,9 +129,26 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
     setFrequency("MONTHLY");
     setNextDueDate("");
     setCategoryId("");
+    setEditingItem(null);
   }
 
-  async function handleCreate() {
+  function openCreateDialog() {
+    resetForm();
+    setIsDialogOpen(true);
+  }
+
+  function openEditDialog(item: RecurringItem) {
+    setEditingItem(item);
+    setName(item.name);
+    setType(item.type);
+    setAmount(String(item.amount));
+    setFrequency(item.frequency);
+    setNextDueDate(item.nextDueDate.split("T")[0]);
+    setCategoryId(item.categoryId ?? "none");
+    setIsDialogOpen(true);
+  }
+
+  async function handleSubmit() {
     if (!name || !amount || !nextDueDate) {
       toast.error("Please fill in all required fields");
       return;
@@ -139,30 +157,35 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/recurring", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          type,
-          amount: parseFloat(amount),
-          frequency,
-          nextDueDate,
-          categoryId: categoryId === "none" ? null : categoryId || null,
-        }),
-      });
+      const payload = {
+        name,
+        type,
+        amount: parseFloat(amount),
+        frequency,
+        nextDueDate,
+        categoryId: categoryId === "none" ? null : categoryId || null,
+      };
+
+      const response = await fetch(
+        editingItem ? `/api/recurring/${editingItem.id}` : "/api/recurring",
+        {
+          method: editingItem ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to create recurring item");
+        throw new Error(data.error || "Failed to save recurring item");
       }
 
-      toast.success(`Recurring ${type.toLowerCase()} created`);
+      toast.success(`Recurring ${type.toLowerCase()} ${editingItem ? "updated" : "created"}`);
       setIsDialogOpen(false);
       resetForm();
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create recurring item");
+      toast.error(error instanceof Error ? error.message : "Failed to save recurring item");
     } finally {
       setIsLoading(false);
     }
@@ -261,17 +284,27 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
         </Card>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) resetForm();
+        }}
+      >
         <DialogTrigger asChild>
-          <Button>
+          <Button onClick={openCreateDialog}>
             <Plus className="mr-2 h-4 w-4" />
             Add Recurring Item
           </Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Recurring Item</DialogTitle>
-            <DialogDescription>Track a recurring expense or income</DialogDescription>
+            <DialogTitle>{editingItem ? "Edit Recurring Item" : "Add Recurring Item"}</DialogTitle>
+            <DialogDescription>
+              {editingItem
+                ? "Update this recurring expense or income"
+                : "Track a recurring expense or income"}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -366,9 +399,9 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={isLoading}>
+            <Button onClick={handleSubmit} disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create
+              {editingItem ? "Save Changes" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -466,19 +499,29 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
                       : `${item.type === "INCOME" ? "+" : "-"}${formatCurrency(item.amount)}`}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleDelete(item.id)}
-                      disabled={deletingId === item.id}
-                    >
-                      {deletingId === item.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                      )}
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openEditDialog(item)}
+                      >
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleDelete(item.id)}
+                        disabled={deletingId === item.id}
+                      >
+                        {deletingId === item.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                        )}
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

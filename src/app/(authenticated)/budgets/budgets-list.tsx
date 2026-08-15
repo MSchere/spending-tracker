@@ -26,7 +26,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Loader2, Trash2, PiggyBank, Receipt } from "lucide-react";
+import { Plus, Loader2, Trash2, Pencil, PiggyBank, Receipt } from "lucide-react";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
 import { usePreferences } from "@/components/providers/preferences-provider";
 
@@ -73,13 +73,34 @@ export function BudgetsList({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
 
   // Form state
   const [categoryId, setCategoryId] = useState("");
   const [amount, setAmount] = useState("");
   const [period, setPeriod] = useState("MONTHLY");
 
-  async function handleCreate() {
+  function resetForm() {
+    setCategoryId("");
+    setAmount("");
+    setPeriod("MONTHLY");
+    setEditingBudget(null);
+  }
+
+  function openCreateDialog() {
+    resetForm();
+    setIsDialogOpen(true);
+  }
+
+  function openEditDialog(budget: Budget) {
+    setEditingBudget(budget);
+    setCategoryId(budget.categoryId);
+    setAmount(String(budget.amount));
+    setPeriod(budget.period);
+    setIsDialogOpen(true);
+  }
+
+  async function handleSubmit() {
     if (!categoryId || !amount) {
       toast.error("Please fill in all fields");
       return;
@@ -88,29 +109,32 @@ export function BudgetsList({
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/budgets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          categoryId,
-          amount: parseFloat(amount),
-          period,
-        }),
-      });
+      const payload = {
+        categoryId,
+        amount: parseFloat(amount),
+        period,
+      };
+
+      const response = await fetch(
+        editingBudget ? `/api/budgets/${editingBudget.id}` : "/api/budgets",
+        {
+          method: editingBudget ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to create budget");
+        throw new Error(data.error || "Failed to save budget");
       }
 
-      toast.success("Budget created");
+      toast.success(editingBudget ? "Budget updated" : "Budget created");
       setIsDialogOpen(false);
-      setCategoryId("");
-      setAmount("");
-      setPeriod("MONTHLY");
+      resetForm();
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create budget");
+      toast.error(error instanceof Error ? error.message : "Failed to save budget");
     } finally {
       setIsLoading(false);
     }
@@ -196,24 +220,41 @@ export function BudgetsList({
         </div>
       )}
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) resetForm();
+        }}
+      >
         <DialogTrigger asChild>
-          <Button>
+          <Button onClick={openCreateDialog}>
             <Plus className="mr-2 h-4 w-4" />
             Create Budget
           </Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Budget</DialogTitle>
-            <DialogDescription>Set a spending limit for a category</DialogDescription>
+            <DialogTitle>{editingBudget ? "Edit Budget" : "Create Budget"}</DialogTitle>
+            <DialogDescription>
+              {editingBudget
+                ? "Update the spending limit for this category"
+                : "Set a spending limit for a category"}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
               <Combobox
-                options={availableCategories.map((cat) => ({
+                options={(editingBudget
+                  ? categories.filter(
+                      (cat) =>
+                        cat.id === editingBudget.categoryId ||
+                        !budgets.some((b) => b.categoryId === cat.id)
+                    )
+                  : availableCategories
+                ).map((cat) => ({
                   value: cat.id,
                   label: cat.name,
                   color: cat.color || undefined,
@@ -258,9 +299,9 @@ export function BudgetsList({
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={isLoading}>
+            <Button onClick={handleSubmit} disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create
+              {editingBudget ? "Save Changes" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -296,19 +337,29 @@ export function BudgetsList({
                       </Badge>
                       {!budget.isActive && <Badge variant="secondary">Inactive</Badge>}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleDelete(budget.id)}
-                      disabled={deletingId === budget.id}
-                    >
-                      {deletingId === budget.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                      )}
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openEditDialog(budget)}
+                      >
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleDelete(budget.id)}
+                        disabled={deletingId === budget.id}
+                      >
+                        {deletingId === budget.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   <CardDescription>
                     {budget.period.charAt(0) + budget.period.slice(1).toLowerCase()} budget

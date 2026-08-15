@@ -25,7 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Loader2, Trash2, Check, Target } from "lucide-react";
+import { Plus, Loader2, Trash2, Check, Pencil, Target } from "lucide-react";
 import { usePrivateMode } from "@/components/providers/private-mode-provider";
 import { usePreferences } from "@/components/providers/preferences-provider";
 
@@ -60,6 +60,7 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
 
   // Form state
   const [name, setName] = useState("");
@@ -68,7 +69,31 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
   const [type, setType] = useState("SAVINGS");
   const [deadline, setDeadline] = useState("");
 
-  async function handleCreate() {
+  function resetForm() {
+    setName("");
+    setTargetAmount("");
+    setCurrentAmount("");
+    setType("SAVINGS");
+    setDeadline("");
+    setEditingGoal(null);
+  }
+
+  function openCreateDialog() {
+    resetForm();
+    setIsDialogOpen(true);
+  }
+
+  function openEditDialog(goal: SavingsGoal) {
+    setEditingGoal(goal);
+    setName(goal.name);
+    setTargetAmount(String(goal.targetAmount));
+    setCurrentAmount(String(goal.currentAmount));
+    setType(goal.type);
+    setDeadline(goal.deadline ? goal.deadline.split("T")[0] : "");
+    setIsDialogOpen(true);
+  }
+
+  async function handleSubmit() {
     if (!name || !targetAmount) {
       toast.error("Please fill in name and target amount");
       return;
@@ -77,33 +102,34 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/savings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          targetAmount: parseFloat(targetAmount),
-          currentAmount: currentAmount ? parseFloat(currentAmount) : 0,
-          type,
-          deadline: deadline || null,
-        }),
-      });
+      const payload = {
+        name,
+        targetAmount: parseFloat(targetAmount),
+        currentAmount: currentAmount ? parseFloat(currentAmount) : 0,
+        type,
+        deadline: deadline || null,
+      };
+
+      const response = await fetch(
+        editingGoal ? `/api/savings/${editingGoal.id}` : "/api/savings",
+        {
+          method: editingGoal ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to create goal");
+        throw new Error(data.error || `Failed to ${editingGoal ? "update" : "create"} goal`);
       }
 
-      toast.success("Savings goal created");
+      toast.success(editingGoal ? "Savings goal updated" : "Savings goal created");
       setIsDialogOpen(false);
-      setName("");
-      setTargetAmount("");
-      setCurrentAmount("");
-      setType("SAVINGS");
-      setDeadline("");
+      resetForm();
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create goal");
+      toast.error(error instanceof Error ? error.message : `Failed to ${editingGoal ? "update" : "create"} goal`);
     } finally {
       setIsLoading(false);
     }
@@ -158,17 +184,27 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
 
   return (
     <>
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) resetForm();
+        }}
+      >
         <DialogTrigger asChild>
-          <Button>
+          <Button onClick={openCreateDialog}>
             <Plus className="mr-2 h-4 w-4" />
             Add Goal
           </Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Savings Goal</DialogTitle>
-            <DialogDescription>Set a target to track your savings progress</DialogDescription>
+            <DialogTitle>{editingGoal ? "Edit Savings Goal" : "Create Savings Goal"}</DialogTitle>
+            <DialogDescription>
+              {editingGoal
+                ? "Update your savings goal details"
+                : "Set a target to track your savings progress"}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -242,9 +278,9 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={isLoading}>
+            <Button onClick={handleSubmit} disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create
+              {editingGoal ? "Save Changes" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -290,6 +326,14 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
                               )}
                             </Button>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => openEditDialog(goal)}
+                          >
+                            <Pencil className="h-4 w-4 text-muted-foreground" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -351,19 +395,29 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
                           <Check className="h-4 w-4 text-green-600" />
                           {goal.name}
                         </CardTitle>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleDelete(goal.id)}
-                          disabled={deletingId === goal.id}
-                        >
-                          {deletingId === goal.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                          )}
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => openEditDialog(goal)}
+                          >
+                            <Pencil className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleDelete(goal.id)}
+                            disabled={deletingId === goal.id}
+                          >
+                            {deletingId === goal.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent>

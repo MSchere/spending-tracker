@@ -16,7 +16,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const { id } = await params;
     const body = await request.json();
-    const { currentAmount, isCompleted } = body;
+    const { name, targetAmount, currentAmount, type, deadline, isCompleted } = body;
 
     const goal = await db.savingsGoal.findUnique({
       where: { id },
@@ -30,9 +30,34 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const updateData: { currentAmount?: typeof goal.currentAmount; isCompleted?: boolean } = {};
+    const VALID_TYPES = ["EMERGENCY_FUND", "SAVINGS", "INDEX_FUND", "ETF", "STOCK", "CRYPTO"];
+    if (type !== undefined && !VALID_TYPES.includes(type)) {
+      return NextResponse.json({ error: `Invalid type. Must be one of: ${VALID_TYPES.join(", ")}` }, { status: 400 });
+    }
+
+    const updateData: {
+      name?: string;
+      targetAmount?: typeof goal.targetAmount;
+      currentAmount?: typeof goal.currentAmount;
+      type?: typeof goal.type;
+      deadline?: Date | null;
+      isCompleted?: boolean;
+    } = {};
+    if (name !== undefined) {
+      if (!name) return NextResponse.json({ error: "Name cannot be empty" }, { status: 400 });
+      updateData.name = name;
+    }
+    if (targetAmount !== undefined) {
+      updateData.targetAmount = new Decimal(targetAmount);
+    }
     if (currentAmount !== undefined) {
       updateData.currentAmount = new Decimal(currentAmount);
+    }
+    if (type !== undefined) {
+      updateData.type = type;
+    }
+    if (deadline !== undefined) {
+      updateData.deadline = deadline ? new Date(deadline) : null;
     }
     if (isCompleted !== undefined) {
       updateData.isCompleted = isCompleted;
