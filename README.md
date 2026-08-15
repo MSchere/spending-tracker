@@ -135,7 +135,7 @@ Only our customized `ibkr/root/conf.yaml` is tracked in git (docker-network IPs 
 - Serves a self-signed HTTPS API on port `5000` and proxies `api.ibkr.com`. Sessions last roughly 24h.
 - The app degrades gracefully: if the gateway is down or unauthenticated, IBKR positions keep their last synced values and a banner appears on the Financial Assets page.
 
-**Auto-login watchdog (`ibkr-login` service):** the headless Chromium watchdog keeps the session alive automatically. It reads `IBKR_USERNAME`/`IBKR_PASSWORD` from the agenix secrets file (default `/run/agenix/spending-tracker`, age-encrypted at rest) and re-logs-in whenever the session expires. The only manual step is **tapping the IB Key push** on your phone — roughly once a day. See `scripts/ibkr-login/`.
+**Auto-login watchdog (`ibkr-login` service):** a headless Chromium watchdog attempts **one login per day at a fixed hour** (default 12:00 local time, configurable via `IBKR_LOGIN_HOUR`). Since the gateway session lasts ~24h, that single daily attempt keeps the session alive for any sync within the window — no retry storms. It reads `IBKR_USERNAME`/`IBKR_PASSWORD` from the agenix secrets file (default `/run/agenix/spending-tracker`, age-encrypted at rest). The only manual step is **tapping the IB Key push** on your phone when it fires. See `scripts/ibkr-login/`.
 
 **Security:** the gateway port is bound **host-only** (`127.0.0.1:5000`) — it is not reachable from the LAN or internet. The app reaches it over the internal Docker network; manual re-logins go through an SSH tunnel (IBKR's SSO flow only accepts `localhost` origins):
 

@@ -77,6 +77,8 @@ services:
       GATEWAY_URL: https://localhost:5000
       SECRETS_FILE: ${IBKR_LOGIN_SECRETS_FILE:-/run/agenix/spending-tracker}
       CHECK_INTERVAL_MIN: ${IBKR_LOGIN_CHECK_INTERVAL_MIN:-10}
+      LOGIN_HOUR: ${IBKR_LOGIN_HOUR:-12}
+      TZ: ${TZ:-Europe/Madrid}
     volumes:
       - ${IBKR_LOGIN_SECRETS_FILE:-/run/agenix/spending-tracker}:/run/agenix/spending-tracker:ro
     restart: unless-stopped

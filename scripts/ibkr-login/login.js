@@ -1,14 +1,24 @@
 #!/usr/bin/env node
 /**
- * IBKR Client Portal Gateway auto-login watchdog (minimal).
+ * IBKR Client Portal Gateway auto-login watchdog (scheduled).
+ *
+ * One login attempt per day at a fixed hour — no retry storms. The gateway
+ * session lasts ~24h, so a single daily attempt keeps it alive for any sync
+ * within that window. Tap the IB Key push when it fires; if the attempt
+ * fails, the next one is tomorrow at the same hour.
  *
  * IBKR's SSO flow only accepts localhost origins, so this runs on the
- * gateway host (compose: network_mode: host). Reads IBKR_USERNAME and
- * IBKR_PASSWORD from an agenix-style KEY=VALUE secrets file. The only
- * manual step: tap the IB Key push on the phone when 2FA fires.
+ * gateway host (compose: network_mode: host). Credentials come from an
+ * agenix-style KEY=VALUE secrets file.
  *
- * Loop: check auth status every CHECK_INTERVAL_MIN; when the session is
- * gone, log in with headless Chromium and poll until authenticated.
+ * Environment:
+ *   GATEWAY_URL          default https://localhost:5000
+ *   SECRETS_FILE         default /run/agenix/spending-tracker
+ *   CHECK_INTERVAL_MIN   poll interval (default 10)
+ *   LOGIN_HOUR           hour of the daily login attempt, 0-23 (default 12)
+ *
+ * Usage: node login.js            (scheduled loop — the container default)
+ *        node login.js --once     (one login attempt, then exit)
  */
 const { chromium } = require("playwright");
 const https = require("https");
@@ -18,6 +28,9 @@ const GATEWAY_URL = process.env.GATEWAY_URL || "https://localhost:5000";
 const SECRETS_FILE = process.env.SECRETS_FILE || "/run/agenix/spending-tracker";
 const CHECK_INTERVAL_MS =
   (parseInt(process.env.CHECK_INTERVAL_MIN || "10", 10) || 10) * 60 * 1000;
+const LOGIN_HOUR = parseInt(process.env.LOGIN_HOUR || "12", 10) || 12;
+
+const ONCE = process.argv[2] === "--once";
 
 function log(...args) {
   console.log(new Date().toISOString(), ...args);
@@ -104,34 +117,40 @@ async function login() {
 }
 
 async function main() {
-  let consecutiveFailures = 0;
+  let lastAttemptDay = "";
+
+  if (ONCE) {
+    const s = await authStatus();
+    if (s.authenticated) {
+      log("Already authenticated");
+      process.exit(0);
+    }
+    process.exit((await login()) ? 0 : 1);
+  }
+
+  log(`Scheduled watchdog — one login attempt per day at ${LOGIN_HOUR}:00 (local time).`);
   for (;;) {
     const s = await authStatus();
-    log(s.authenticated ? "Session: authenticated" : "Session: not authenticated");
-    if (!s.authenticated) {
-      let ok = false;
-      try {
-        ok = await login();
-      } catch (e) {
-        log("Login error:", e.message);
-      }
-      consecutiveFailures = ok ? 0 : consecutiveFailures + 1;
+    if (s.authenticated) {
+      log("Session: authenticated");
+      lastAttemptDay = "";
     } else {
-      consecutiveFailures = 0;
+      const now = new Date();
+      const today = now.toISOString().slice(0, 10);
+      if (now.getHours() === LOGIN_HOUR && lastAttemptDay !== today) {
+        log("Scheduled login attempt");
+        try {
+          await login();
+        } catch (e) {
+          log("Login error:", e.message);
+        }
+        // One attempt per day, success or not
+        lastAttemptDay = today;
+      } else {
+        log(`Session: not authenticated (next attempt at ${LOGIN_HOUR}:00)`);
+      }
     }
-
-    // After failed attempts, back off hard — every attempt fires an IB Key
-    // push, and rapid retries trigger IBKR cooldowns that break approvals.
-    const backoffMs =
-      consecutiveFailures === 0
-        ? CHECK_INTERVAL_MS
-        : Math.min(consecutiveFailures * 30 * 60 * 1000, 4 * 60 * 60 * 1000);
-    if (consecutiveFailures > 0) {
-      log(
-        `Backing off ${Math.round(backoffMs / 60000)} min after ${consecutiveFailures} failed attempt(s)`
-      );
-    }
-    await new Promise((r) => setTimeout(r, backoffMs));
+    await new Promise((r) => setTimeout(r, CHECK_INTERVAL_MS));
   }
 }
 
