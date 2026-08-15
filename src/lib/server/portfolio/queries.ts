@@ -116,7 +116,6 @@ export async function getPortfolioOverview(userId: string): Promise<PortfolioOve
     getLatestIndexaSnapshots(userId),
   ]);
 
-  // Convert asset values to the preferred currency
   const converted = assets.map((asset) => ({
     ...asset,
     currentValue: convert(asset.currentValue, asset.currency, targetCurrency, rates),
@@ -191,7 +190,6 @@ export async function getCombinedPortfolioHistory(
   const startDate = startOfDay(subDays(new Date(), days));
   const today = new Date();
 
-  // --- Indexa snapshots, deduplicated per account per date ---
   const indexaAccounts = await db.indexaAccount.findMany({
     where: { userId, status: "active" },
     select: { id: true },
@@ -210,7 +208,6 @@ export async function getCombinedPortfolioHistory(
         })
       : [];
 
-  // Per-account sorted arrays of [dateKey, totalValue, totalInvested]
   const perAccount = new Map<string, Array<{ dateKey: string; value: number; invested: number }>>();
   for (const snapshot of indexaSnapshots) {
     const dateKey = snapshot.date.toISOString().split("T")[0];
@@ -229,7 +226,6 @@ export async function getCombinedPortfolioHistory(
     perAccount.set(snapshot.accountId, list);
   }
 
-  // --- Non-Indexa assets with their price history ---
   const otherAssets = await db.financialAsset.findMany({
     where: { userId, source: { in: ["MANUAL", "IBKR"] } },
     include: {
@@ -240,7 +236,6 @@ export async function getCombinedPortfolioHistory(
     },
   });
 
-  // --- Merge every observed date ---
   const dateKeys = new Set<string>();
   for (const list of perAccount.values()) for (const p of list) dateKeys.add(p.dateKey);
   for (const asset of otherAssets)
@@ -248,7 +243,6 @@ export async function getCombinedPortfolioHistory(
 
   const sortedDates = Array.from(dateKeys).sort();
 
-  // Walking pointers per account / asset for last-value-carried-forward
   const accountPointers = new Map<string, number>();
   const assetPointers = new Map<string, number>();
   const assetLastPrice = new Map<string, number>();
@@ -261,7 +255,6 @@ export async function getCombinedPortfolioHistory(
     let totalInvested = 0;
     let investedKnown = true;
 
-    // Indexa: advance pointers, carry forward last known values
     for (const [accountId, list] of perAccount) {
       let pointer = accountPointers.get(accountId) ?? 0;
       while (pointer < list.length && list[pointer].dateKey <= dateKey) {
@@ -280,7 +273,6 @@ export async function getCombinedPortfolioHistory(
       }
     }
 
-    // Other assets: price on/before this date × current shares
     for (const asset of otherAssets) {
       const prices = asset.prices;
       let pointer = assetPointers.get(asset.id) ?? 0;

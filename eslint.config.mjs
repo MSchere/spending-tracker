@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // IBKR Client Portal Gateway (third-party Java binary + bundled JS demo app)
     "ibkr/**",
+    // Standalone Node/CJS script running inside its own Docker container
+    "scripts/ibkr-login/**",
   ]),
 ]);
 

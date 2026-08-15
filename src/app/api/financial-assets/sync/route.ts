@@ -26,7 +26,6 @@ export async function POST() {
       return NextResponse.json({ error: "Alpha Vantage API not configured" }, { status: 503 });
     }
 
-    // Get user's preferred currency
     const preferences = await db.userPreferences.findUnique({
       where: { userId: session.user.id },
       select: { currency: true },
@@ -51,11 +50,9 @@ export async function POST() {
         let price: number;
 
         if (asset.type === "CRYPTO") {
-          // Crypto: fetch in user's preferred currency
           const quote = await client.getCryptoQuote(asset.ticker, currency);
           price = quote.price;
         } else {
-          // STOCK or ETF: fetch and convert to user's preferred currency
           const quote = await client.getStockQuote(asset.ticker, currency);
           price = quote.price;
         }

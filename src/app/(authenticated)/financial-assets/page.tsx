@@ -17,7 +17,6 @@ export default async function FinancialAssetsPage() {
     getCombinedPortfolioHistory(session.user.id, 365),
   ]);
 
-  // Integration status for banners/badges
   const ibkrEnabled = isIbkrConfigured();
   let ibkrAuthenticated = false;
   if (ibkrEnabled) {

@@ -166,7 +166,6 @@ export class IndexaClient {
   async getPortfolio(accountNumber: string): Promise<IndexaPortfolioSnapshot> {
     const raw = await this.getPortfolioRaw(accountNumber);
 
-    // Transform holdings from the API response
     const holdings: IndexaHolding[] = [];
 
     for (const instrumentAccount of raw.instrument_accounts || []) {
@@ -234,7 +233,6 @@ export class IndexaClient {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    // The portfolios array contains portfolio snapshot objects with dates
     const portfolioSnapshots = raw.portfolios || [];
 
     if (Array.isArray(portfolioSnapshots) && portfolioSnapshots.length > 0) {
@@ -255,7 +253,6 @@ export class IndexaClient {
           // Only include snapshots with actual value
           if (dateStr && totalValue > 0) {
             // Use cost basis (instruments_cost + cash) as total invested
-            // This represents the actual cost of acquiring current holdings
             const totalInvested = instrumentsCost + cashAmount;
             const returns = totalValue - totalInvested;
             const returnsPercent = totalInvested > 0 ? (returns / totalInvested) * 100 : 0;
@@ -272,7 +269,6 @@ export class IndexaClient {
       }
     }
 
-    // Sort by date ascending
     points.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     return points;

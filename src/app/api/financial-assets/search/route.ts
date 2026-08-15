@@ -26,7 +26,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Query parameter 'q' is required" }, { status: 400 });
     }
 
-    // For crypto, search our predefined list (no API call needed)
     if (type === "crypto" || type === "CRYPTO") {
       const lowerQuery = query.toLowerCase();
       const matches = COMMON_CRYPTO_SYMBOLS.filter(
@@ -44,7 +43,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ results: matches });
     }
 
-    // For stocks/ETFs, use Alpha Vantage API
     if (!isAlphaVantageConfigured()) {
       return NextResponse.json({ error: "Alpha Vantage API not configured" }, { status: 503 });
     }
@@ -52,7 +50,6 @@ export async function GET(request: NextRequest) {
     const client = getAlphaVantageClient();
     const results = await client.searchSymbols(query);
 
-    // Map to our format and filter by type if specified
     const mappedResults = results
       .filter((r) => {
         if (!type || type === "all") return true;
@@ -74,7 +71,6 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Symbol search error:", error);
 
-    // Handle rate limit errors gracefully
     if (error instanceof Error && error.message.includes("Rate limit")) {
       return NextResponse.json(
         { error: "API rate limit reached. Please try again later." },

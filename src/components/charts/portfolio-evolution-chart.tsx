@@ -46,7 +46,6 @@ export function PortfolioEvolutionChart({ data }: PortfolioEvolutionChartProps) 
     );
   }
 
-  // Format data for the chart
   const chartData = data.map((point) => ({
     ...point,
     dateLabel: format(new Date(point.date), "MMM yy"),

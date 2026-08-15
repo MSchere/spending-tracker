@@ -40,10 +40,8 @@ async function getTransactionsData(
     where.description = { contains: search.trim() };
   }
 
-  // Get total count for pagination
   const totalCount = await db.transaction.count({ where });
 
-  // Get paginated transactions
   const transactions = await db.transaction.findMany({
     where,
     include: {
@@ -56,7 +54,6 @@ async function getTransactionsData(
     take: PAGE_SIZE,
   });
 
-  // Get all categories for the filter
   const categories = await db.category.findMany({
     orderBy: { name: "asc" },
   });
@@ -95,7 +92,6 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const { transactions, categories, totalCount, totalPages, currentPage } =
     await getTransactionsData(session.user.id, page, typeFilter, categoryFilter, search);
 
-  // Serialize for client component
   const serializedTransactions = transactions.map((t) => ({
     id: t.id,
     date: t.date.toISOString(),

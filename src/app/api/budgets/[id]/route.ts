@@ -18,7 +18,6 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // Verify budget belongs to user
     const budget = await db.budget.findUnique({
       where: { id },
     });

@@ -55,7 +55,6 @@ export async function POST(request: NextRequest) {
       salvageValue,
     } = body;
 
-    // Validate required fields
     if (!name || !category || !purchaseDate || purchasePrice === undefined) {
       return NextResponse.json(
         { error: "name, category, purchaseDate, and purchasePrice are required" },
@@ -63,7 +62,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate category
     if (!Object.keys(CATEGORY_DEFAULTS).includes(category)) {
       return NextResponse.json(
         { error: `Invalid category. Must be one of: ${Object.keys(CATEGORY_DEFAULTS).join(", ")}` },
@@ -71,7 +69,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate depreciation method if provided
     const validMethods: DepreciationMethod[] = ["STRAIGHT_LINE", "DECLINING_BALANCE", "NONE"];
     if (depreciationMethod && !validMethods.includes(depreciationMethod)) {
       return NextResponse.json(

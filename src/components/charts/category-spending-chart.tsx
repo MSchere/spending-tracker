@@ -32,7 +32,6 @@ export function CategorySpendingChart({ data }: CategorySpendingChartProps) {
     );
   }
 
-  // Build dynamic chart config from data
   const chartConfig = data.reduce((acc, item) => {
     acc[item.name] = {
       label: item.name,

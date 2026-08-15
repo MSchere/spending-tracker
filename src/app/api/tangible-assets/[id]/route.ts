@@ -30,7 +30,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Asset not found" }, { status: 404 });
     }
 
-    // Generate depreciation schedule for charting
     const depreciationSchedule = generateDepreciationSchedule({
       purchaseDate: asset.purchaseDate,
       purchasePrice: asset.purchasePrice,

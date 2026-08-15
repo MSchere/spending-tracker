@@ -79,9 +79,6 @@ export interface CoinGeckoSimplePrice {
   };
 }
 
-/**
- * CoinGecko API Client
- */
 export class CoinGeckoClient {
   /**
    * Make a request to the CoinGecko API

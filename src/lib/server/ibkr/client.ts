@@ -95,7 +95,6 @@ export class IbkrClient {
     const raw: IbkrPosition[] = [];
     let page = 0;
 
-    // Pages are returned until an empty array comes back
     for (;;) {
       const batch = await this.request<IbkrPosition[]>(
         `/v1/api/portfolio/${encodeURIComponent(accountId)}/positions/${page}`
@@ -144,9 +143,7 @@ export class IbkrClient {
       }>(`/v1/api/trsrv/secdef?conids=${conids}`);
 
       secdefMap = new Map((response.secdef ?? []).map((c) => [c.conid, c]));
-    } catch {
-      // Best effort: fall back to whatever the positions payload had
-    }
+    } catch {}
 
     return positions.map((p) => {
       const extra = secdefMap.get(p.conid);

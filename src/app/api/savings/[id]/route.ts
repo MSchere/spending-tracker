@@ -18,7 +18,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = await request.json();
     const { currentAmount, isCompleted } = body;
 
-    // Verify goal belongs to user
     const goal = await db.savingsGoal.findUnique({
       where: { id },
     });
@@ -31,7 +30,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    // Build update data
     const updateData: { currentAmount?: typeof goal.currentAmount; isCompleted?: boolean } = {};
     if (currentAmount !== undefined) {
       updateData.currentAmount = new Decimal(currentAmount);
@@ -68,7 +66,6 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // Verify goal belongs to user
     const goal = await db.savingsGoal.findUnique({
       where: { id },
     });

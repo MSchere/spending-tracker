@@ -11,7 +11,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });
     }
 
-    // Find user
     const user = await db.user.findUnique({
       where: { id: userId },
       select: {
@@ -26,7 +25,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Check if 2FA is already enabled
     if (user.twoFactorEnabled) {
       return NextResponse.json(
         { error: "2FA is already enabled for this account" },
@@ -34,7 +32,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Check if user has a secret
     if (!user.twoFactorSecret) {
       return NextResponse.json(
         { error: "2FA secret not found. Please register again." },
@@ -42,10 +39,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Decrypt the secret
     const decryptedSecret = decryptTotpSecret(user.twoFactorSecret);
 
-    // Generate QR code
     const qrCodeUrl = await generateQrCodeDataUrl(user.email, decryptedSecret);
 
     return NextResponse.json({

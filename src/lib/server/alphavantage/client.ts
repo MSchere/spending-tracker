@@ -63,12 +63,10 @@ export class AlphaVantageClient {
 
     const data = (await response.json()) as T & AlphaVantageError;
 
-    // Check for API errors
     if (data["Error Message"]) {
       throw new Error(data["Error Message"]);
     }
     if (data.Note) {
-      // Rate limit hit
       throw new Error(`Rate limit exceeded: ${data.Note}`);
     }
     if (data.Information) {
@@ -176,7 +174,6 @@ export class AlphaVantageClient {
       });
     }
 
-    // Sort by date ascending
     points.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     return points;
@@ -198,7 +195,6 @@ export class AlphaVantageClient {
    * Tries Alpha Vantage first, falls back to CoinGecko for unsupported cryptos
    */
   async getCryptoQuote(symbol: string, toCurrency: string): Promise<CryptoQuote> {
-    // Try Alpha Vantage real-time exchange rate endpoint
     try {
       const raw = await this.getCryptoRateRaw(symbol, toCurrency);
       const rate = raw["Realtime Currency Exchange Rate"];
@@ -210,11 +206,8 @@ export class AlphaVantageClient {
           lastRefreshed: rate["6. Last Refreshed"],
         };
       }
-    } catch {
-      // Fall through to CoinGecko
-    }
+    } catch {}
 
-    // Fallback: CoinGecko
     const coinGecko = getCoinGeckoClient();
     if (coinGecko.isSymbolSupported(symbol)) {
       const result = await coinGecko.getPriceBySymbol(symbol, toCurrency);

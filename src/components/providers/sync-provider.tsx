@@ -32,7 +32,6 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
   const triggerSync = useCallback(
     async (mode: "light" | "full" = "light") => {
-      // Prevent duplicate syncs
       if (syncState.isSyncing) return;
 
       setSyncState((prev) => ({ ...prev, isSyncing: true, error: null }));
@@ -68,7 +67,6 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
   // Check last sync time from server and auto-sync if stale
   useEffect(() => {
-    // Only check once per session
     if (hasCheckedSyncRef.current) return;
 
     // Only sync for authenticated users
@@ -88,7 +86,6 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         const data = await response.json();
         const lastSyncAt = data.lastSyncAt ? new Date(data.lastSyncAt) : null;
 
-        // Update local state with server's last sync time
         if (lastSyncAt) {
           setSyncState((prev) => ({ ...prev, lastSyncAt }));
         }
@@ -100,9 +97,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         if (now - lastSyncTime >= AUTO_SYNC_INTERVAL_MS) {
           triggerSync("light");
         }
-      } catch {
-        // Sync status check failed silently
-      }
+      } catch {}
     };
 
     checkAndSync();

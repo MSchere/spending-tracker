@@ -3,19 +3,16 @@ import { db } from "@/lib/server/db";
 import { RecurringList } from "./recurring-list";
 
 async function getRecurringData(userId: string) {
-  // Get user's profiles
   const profiles = await db.wiseProfile.findMany({
     where: { userId },
     select: { id: true },
   });
 
-  // Get all recurring items (expenses and income)
   const recurringItems = await db.recurringExpense.findMany({
     include: { category: true },
     orderBy: { nextDueDate: "asc" },
   });
 
-  // Get all categories (for both expenses and income)
   const categories = await db.category.findMany({
     where: { type: { in: ["FIXED_EXPENSE", "VARIABLE_EXPENSE", "INCOME"] } },
     orderBy: { name: "asc" },

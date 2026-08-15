@@ -219,7 +219,6 @@ export function RecurringList({ recurring, categories }: RecurringListProps) {
     { ascColumns: ["name", "type", "category"] }
   );
 
-  // Calculate monthly totals by type
   const activeItems = recurring.filter((r) => r.isActive);
 
   const monthlyExpenseTotal = activeItems

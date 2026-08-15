@@ -45,7 +45,6 @@ export function HoldingsChart({ data }: HoldingsChartProps) {
     );
   }
 
-  // Assign colors to each holding
   const chartData = data.map((item, index) => ({
     ...item,
     color: COLORS[index % COLORS.length],
@@ -53,7 +52,6 @@ export function HoldingsChart({ data }: HoldingsChartProps) {
     value: item.totalValue,
   }));
 
-  // Build dynamic chart config from data
   const chartConfig = chartData.reduce((acc, item) => {
     acc[item.name] = {
       label: item.name,

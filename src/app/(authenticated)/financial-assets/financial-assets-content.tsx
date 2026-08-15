@@ -344,7 +344,6 @@ export function FinancialAssetsContent({
     { ascColumns: ["name", "type", "source"] }
   );
 
-  // Allocation pie data (by asset, sorted desc)
   const allocationData = [...assets]
     .sort((a, b) => b.currentValue - a.currentValue)
     .map((asset) => ({
@@ -354,7 +353,6 @@ export function FinancialAssetsContent({
       weight: totalValue > 0 ? (asset.currentValue / totalValue) * 100 : 0,
     }));
 
-  // Evolution chart data
   const chartHistory = history
     .filter((point) => point.totalValue > 0)
     .map((point) => ({

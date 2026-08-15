@@ -18,7 +18,6 @@ export async function GET() {
       where: { userId: session.user.id },
     });
 
-    // Return defaults if no preferences exist
     return NextResponse.json(
       preferences || {
         locale: "es-ES",
@@ -45,13 +44,11 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { locale, currency } = body;
 
-    // Validate locale
     const validLocales = ["es-ES", "en-US", "en-GB", "de-DE", "fr-FR", "it-IT", "pt-PT", "pt-BR"];
     if (locale && !validLocales.includes(locale)) {
       return NextResponse.json({ error: "Invalid locale" }, { status: 400 });
     }
 
-    // Validate currency (must match Currency enum)
     const validCurrencies: Currency[] = ["EUR", "USD", "GBP", "CHF", "JPY", "CAD", "AUD", "BRL"];
     if (currency && !validCurrencies.includes(currency)) {
       return NextResponse.json({ error: "Invalid currency" }, { status: 400 });

@@ -86,7 +86,6 @@ export function calculateDepreciation(
 
   switch (asset.depreciationMethod) {
     case "NONE":
-      // No depreciation - value stays at purchase price
       currentValue = purchasePrice;
       break;
 
@@ -107,7 +106,6 @@ export function calculateDepreciation(
       const rate = 2 / usefulLife;
       let value = purchasePrice;
 
-      // Apply depreciation year by year
       const fullYears = Math.floor(yearsOwned);
       for (let i = 0; i < fullYears && value > salvageValue; i++) {
         const depreciation = value * rate;
@@ -173,7 +171,6 @@ export function generateDepreciationSchedule(
     endDate = maxDate;
   }
 
-  // Generate points
   const currentDate = new Date(startDate);
   while (currentDate <= endDate) {
     const result = calculateDepreciation(asset, currentDate);
@@ -182,7 +179,6 @@ export function generateDepreciationSchedule(
       value: result.currentValue,
     });
 
-    // Move to next interval
     currentDate.setMonth(currentDate.getMonth() + intervalMonths);
   }
 
@@ -199,7 +195,6 @@ export function generateDepreciationSchedule(
         date: now,
         value: result.currentValue,
       });
-      // Re-sort by date
       points.sort((a, b) => a.date.getTime() - b.date.getTime());
     }
   }

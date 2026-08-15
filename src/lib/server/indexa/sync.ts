@@ -91,8 +91,6 @@ export async function syncIndexaData(
         },
       });
 
-      // Aggregate holdings across accounts; they are persisted as
-      // FinancialAsset rows (source = INDEXA) after the account loop.
       for (const holding of portfolio.holdings) {
         if (holding.value <= 0 || holding.shares <= 0) continue;
 
@@ -158,9 +156,7 @@ export async function syncIndexaData(
       });
     }
 
-    // Persist aggregated holdings as FinancialAsset rows (source = INDEXA).
-    // Indexa instruments are mutual funds; per-instrument cost basis is not
-    // available from the API, so avgCostBasis stays null.
+    // Indexa does not expose per-instrument cost, so avgCostBasis stays null.
     const now = new Date();
     const today = startOfDay(now);
     const seenTickers: string[] = [];
@@ -237,7 +233,6 @@ export async function syncIndexaData(
       seenTickers.push(CASH_TICKER);
     }
 
-    // Remove Indexa assets whose positions no longer exist
     await db.financialAsset.deleteMany({
       where: { userId, source: "INDEXA", ticker: { notIn: seenTickers } },
     });

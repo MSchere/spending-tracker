@@ -38,7 +38,6 @@ function Setup2FAForm() {
       return;
     }
 
-    // Fetch 2FA setup data
     fetch(`/api/auth/2fa/setup?userId=${userId}`)
       .then((res) => res.json())
       .then((data) => {
@@ -82,7 +81,6 @@ function Setup2FAForm() {
 
       toast.success("2FA enabled successfully! Please sign in.");
 
-      // Redirect to login page with email pre-filled
       router.push(`/login?email=${encodeURIComponent(data.email)}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "An unexpected error occurred");

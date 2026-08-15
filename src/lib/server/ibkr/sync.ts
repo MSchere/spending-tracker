@@ -50,7 +50,6 @@ export async function syncIbkrData(userId: string): Promise<IbkrSyncResult> {
       return { success: true, accountsSynced: 0, positionsSynced: 0, skipped: 0 };
     }
 
-    // Aggregate positions across accounts, keyed by ticker|type
     const aggregated = new Map<
       string,
       {

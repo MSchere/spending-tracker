@@ -47,7 +47,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create savings goal
     const goal = await db.savingsGoal.create({
       data: {
         userId: session.user.id,

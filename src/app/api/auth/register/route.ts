@@ -8,7 +8,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, email, password } = body;
 
-    // Validate input
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
@@ -20,7 +19,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already exists
     const existingUser = await db.user.findUnique({
       where: { email: email.toLowerCase() },
     });
@@ -32,14 +30,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Generate 2FA secret (will be activated after setup)
     const totpSecret = generateTotpSecret();
     const encryptedSecret = encryptTotpSecret(totpSecret);
 
-    // Create user with 2FA secret but not enabled yet
     const user = await db.user.create({
       data: {
         email: email.toLowerCase(),
