@@ -59,6 +59,9 @@ services:
   # step is tapping the IB Key push on your phone. See scripts/ibkr-login/.
   ibkr-login:
     build: ./scripts/ibkr-login
+    depends_on:
+      ibkr-gateway:
+        condition: service_started
     network_mode: host
     environment:
       GATEWAY_URL: https://localhost:5000
