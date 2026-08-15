@@ -38,6 +38,29 @@ function log(...args) {
   console.log(new Date().toISOString(), ...args);
 }
 
+// Fatal errors go to stderr (synchronous — never truncated on exit) so
+// docker always captures the reason, then exit for the restart policy.
+function fatal(...args) {
+  console.error(new Date().toISOString(), ...args);
+  process.exitCode = 1;
+  process.exit(1);
+}
+
+process.on("unhandledRejection", (err) =>
+  fatal("Fatal (unhandled rejection):", err?.message ?? err)
+);
+process.on("uncaughtException", (err) =>
+  fatal("Fatal (uncaught exception):", err?.message ?? err)
+);
+
+async function closeBrowser(browser) {
+  // browser.close() can hang in constrained containers; never block on it
+  await Promise.race([
+    browser.close(),
+    new Promise((r) => setTimeout(r, 5000)),
+  ]);
+}
+
 function getCredentials() {
   const secrets = readSecrets(SECRETS_FILE);
   const username = secrets.IBKR_USERNAME;
@@ -163,7 +186,7 @@ async function loginOnce(username, password) {
     log("Screenshot saved to", shot);
     return false;
   } finally {
-    await browser.close();
+    await closeBrowser(browser);
   }
 }
 
@@ -233,7 +256,4 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  log("Fatal:", err.message);
-  process.exit(1);
-});
+main().catch((err) => fatal("Fatal:", err.message));
