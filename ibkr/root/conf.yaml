@@ -25,10 +25,7 @@ ips:
   allow:
     - 127.0.0.1
     - ::1
-    # Docker bridge networks (app container -> gateway). Docker defaults to
-    # 172.x; if your host's docker pool ever lands on 10.x, add it back here.
     - 172.*
-    # Your admin machine only — replace with the actual LAN IP you log in from
-    - 192.168.10.20
+    - 192.168.10.172
   deny:
     - 212.90.324.10
