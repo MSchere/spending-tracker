@@ -1,22 +1,14 @@
 #!/usr/bin/env node
 /**
- * IBKR Client Portal Gateway auto-login watchdog.
+ * IBKR Client Portal Gateway auto-login watchdog (minimal).
  *
- * IBKR's SSO flow only works when the browser origin is `localhost`, so this
- * script MUST run on the same host as the gateway (or via an SSH tunnel).
- * It reads IBKR_USERNAME / IBKR_PASSWORD from an agenix-style KEY=VALUE
- * secrets file (age-encrypted at rest, decrypted to /run/agenix by NixOS).
+ * IBKR's SSO flow only accepts localhost origins, so this runs on the
+ * gateway host (compose: network_mode: host). Reads IBKR_USERNAME and
+ * IBKR_PASSWORD from an agenix-style KEY=VALUE secrets file. The only
+ * manual step: tap the IB Key push on the phone when 2FA fires.
  *
- * Usage:
- *   node login.js --check    # print auth status, exit 0 if authenticated
- *   node login.js --once     # one login attempt (waits for the 2FA tap)
- *   node login.js --watch    # loop forever (default)
- *
- * Environment:
- *   GATEWAY_URL          default https://localhost:5000
- *   SECRETS_FILE         default /run/agenix/spending-tracker
- *   CHECK_INTERVAL_MIN   poll interval when authenticated (default 10)
- *   LOGIN_TIMEOUT_SEC    how long to wait for the 2FA tap (default 240)
+ * Loop: check auth status every CHECK_INTERVAL_MIN; when the session is
+ * gone, log in with headless Chromium and poll until authenticated.
  */
 const { chromium } = require("playwright");
 const https = require("https");
@@ -26,268 +18,106 @@ const GATEWAY_URL = process.env.GATEWAY_URL || "https://localhost:5000";
 const SECRETS_FILE = process.env.SECRETS_FILE || "/run/agenix/spending-tracker";
 const CHECK_INTERVAL_MS =
   (parseInt(process.env.CHECK_INTERVAL_MIN || "10", 10) || 10) * 60 * 1000;
-const LOGIN_TIMEOUT_MS =
-  (parseInt(process.env.LOGIN_TIMEOUT_SEC || "300", 10) || 300) * 1000;
-const FAIL_BACKOFF_MS = 30 * 60 * 1000; // after a failed login attempt
-
-const MODE = process.argv[2] === "--check" ? "check"
-  : process.argv[2] === "--once" ? "once"
-  : "watch";
 
 function log(...args) {
   console.log(new Date().toISOString(), ...args);
 }
 
-// Fatal errors go to stderr (synchronous — never truncated on exit) so
-// docker always captures the reason, then exit for the restart policy.
-function fatal(...args) {
-  console.error(new Date().toISOString(), ...args);
-  process.exitCode = 1;
-  process.exit(1);
-}
-
-process.on("unhandledRejection", (err) =>
-  fatal("Fatal (unhandled rejection):", err?.message ?? err)
-);
-process.on("uncaughtException", (err) =>
-  fatal("Fatal (uncaught exception):", err?.message ?? err)
-);
-
-async function closeBrowser(browser) {
-  // browser.close() can hang in constrained containers; never block on it
-  await Promise.race([
-    browser.close(),
-    new Promise((r) => setTimeout(r, 5000)),
-  ]);
-}
-
 function getCredentials() {
-  const secrets = readSecrets(SECRETS_FILE);
-  const username = secrets.IBKR_USERNAME;
-  const password = secrets.IBKR_PASSWORD;
-  if (!username || !password) {
-    throw new Error(`IBKR_USERNAME/IBKR_PASSWORD missing in ${SECRETS_FILE}`);
-  }
-  return { username, password };
-}
-
-function readSecrets(file) {
-  if (!fs.existsSync(file)) {
-    throw new Error(
-      `Secrets file not found: ${file} (set SECRETS_FILE or deploy the agenix secret)`
-    );
-  }
+  const raw = fs.readFileSync(SECRETS_FILE, "utf8");
   const secrets = {};
-  for (const line of fs.readFileSync(file, "utf8").split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq === -1) continue;
-    const key = trimmed.slice(0, eq).trim();
-    let value = trimmed.slice(eq + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
+  for (const line of raw.split("\n")) {
+    const t = line.trim();
+    if (!t || t.startsWith("#")) continue;
+    const i = t.indexOf("=");
+    if (i === -1) continue;
+    let v = t.slice(i + 1).trim();
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+      v = v.slice(1, -1);
     }
-    secrets[key] = value;
+    secrets[t.slice(0, i).trim()] = v;
+  }
+  if (!secrets.IBKR_USERNAME || !secrets.IBKR_PASSWORD) {
+    throw new Error(`IBKR_USERNAME/IBKR_PASSWORD missing in ${SECRETS_FILE}`);
   }
   return secrets;
 }
 
 function authStatus() {
   return new Promise((resolve) => {
-    const req = https.get(GATEWAY_URL + "/v1/api/iserver/auth/status", {
-      rejectUnauthorized: false,
-      timeout: 10000,
-    }, (res) => {
-      let body = "";
-      res.on("data", (c) => (body += c));
-      res.on("end", () => {
-        try {
-          resolve(JSON.parse(body));
-        } catch {
-          // Non-JSON body: an unauthenticated gateway answers 401/403 with an
-          // HTML error page. That's "session expired", not "unreachable".
-          resolve({
-            authenticated: false,
-            httpStatus: res.statusCode,
-            error: `HTTP ${res.statusCode}: ${body.slice(0, 60)}`,
-          });
-        }
-      });
-    });
-    req.on("error", (err) =>
-      resolve({ authenticated: false, httpStatus: null, error: err.message })
+    const req = https.get(
+      GATEWAY_URL + "/v1/api/iserver/auth/status",
+      { rejectUnauthorized: false, timeout: 10000 },
+      (res) => {
+        let body = "";
+        res.on("data", (c) => (body += c));
+        res.on("end", () => {
+          try {
+            resolve(JSON.parse(body));
+          } catch {
+            resolve({ authenticated: false, httpStatus: res.statusCode });
+          }
+        });
+      }
     );
+    req.on("error", () => resolve({ authenticated: false, httpStatus: null }));
     req.on("timeout", () => {
       req.destroy();
-      resolve({ authenticated: false, httpStatus: null, error: "timeout" });
+      resolve({ authenticated: false, httpStatus: null });
     });
   });
 }
 
-async function fillAndSubmit(page, username, password) {
-  // Let the portal JS settle
-  await page.waitForTimeout(1500);
-
-  const userInputs = await page.$$(
-    'input[name="username"], input[name="user_name"], input#user_name, input#username, input[autocomplete="username"]'
-  );
-  if (userInputs.length === 0) {
-    // Last resort: first visible text input (portal markup varies by region/version)
-    const textInputs = await page.$$('input[type="text"]');
-    if (textInputs.length === 0) throw new Error("Login form not found");
-    await textInputs[0].fill(username);
-  } else {
-    await userInputs[0].fill(username);
-  }
-
-  const pwdInputs = await page.$$('input[type="password"]');
-  if (pwdInputs.length === 0) throw new Error("Password field not found");
-  await pwdInputs[0].fill(password);
-  await pwdInputs[0].press("Enter");
-}
-
-// Resolve after ms, or reject if the promise never settles (hangs)
-function withTimeout(promise, ms, label) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-    ),
-  ]);
-}
-
-async function loginOnce(username, password) {
+async function login() {
+  const { IBKR_USERNAME, IBKR_PASSWORD } = getCredentials();
   const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ ignoreHTTPSErrors: true });
   try {
-    const context = await browser.newContext({
-      ignoreHTTPSErrors: true,
-      viewport: { width: 1280, height: 900 },
-    });
-    const page = await context.newPage();
-
     log("Opening", GATEWAY_URL);
-    await withTimeout(
-      page.goto(GATEWAY_URL + "/", { waitUntil: "domcontentloaded", timeout: 60000 }),
-      70000,
-      "page.goto"
+    await page.goto(GATEWAY_URL + "/", { waitUntil: "domcontentloaded", timeout: 60000 });
+
+    const userInputs = await page.$$(
+      'input[name="username"], input[name="user_name"], input#user_name, input#username, input[autocomplete="username"]'
     );
-
-    log("Filling credentials");
-    await withTimeout(fillAndSubmit(page, username, password), 30000, "fillAndSubmit");
-
-    // The 2FA (IB Key push) is approved on the phone — poll the session state.
-    // The loop is guaranteed to terminate: the deadline check AND a wall-clock
-    // race both bound it, so a stuck authStatus() can never freeze the script.
-    log(`Waiting for 2FA approval on your phone (up to ${LOGIN_TIMEOUT_MS / 1000}s)...`);
-    const deadline = Date.now() + LOGIN_TIMEOUT_MS;
-    let status = { authenticated: false };
-    try {
-      status = await withTimeout(
-        (async () => {
-          let current = { authenticated: false };
-          while (Date.now() < deadline) {
-            await new Promise((r) => setTimeout(r, 3000));
-            current = await authStatus();
-            if (current.authenticated) break;
-          }
-          return current;
-        })(),
-        LOGIN_TIMEOUT_MS + 20000,
-        "2FA polling"
-      );
-    } catch (err) {
-      log("Polling aborted:", err.message);
-      status = { authenticated: false };
+    const pwdInputs = await page.$$('input[type="password"]');
+    if (userInputs.length === 0 || pwdInputs.length === 0) {
+      throw new Error("Login form not found");
     }
+    await userInputs[0].fill(IBKR_USERNAME);
+    await pwdInputs[0].fill(IBKR_PASSWORD);
+    await pwdInputs[0].press("Enter");
+    log("Credentials submitted — waiting for 2FA approval on your phone...");
 
-    if (status.authenticated) {
-      log("✅ Authenticated:", JSON.stringify(status));
-      return true;
+    for (let i = 0; i < 60; i++) {
+      await new Promise((r) => setTimeout(r, 5000));
+      const s = await authStatus();
+      if (s.authenticated) {
+        log("Authenticated");
+        return;
+      }
     }
-
-    log("❌ Login did not complete within timeout.");
-    try {
-      log("Page URL:", await withTimeout(page.url(), 5000, "page.url"));
-    } catch {}
-    const shot = "/tmp/ibkr-login-debug.png";
-    try {
-      await withTimeout(page.screenshot({ path: shot, fullPage: true }), 8000, "screenshot");
-      log("Screenshot saved to", shot);
-    } catch {}
-    return false;
+    log("Not authenticated after 5 minutes");
   } finally {
-    await closeBrowser(browser);
+    await browser.close();
   }
 }
 
 async function main() {
-  // Re-read on every login attempt so secret updates apply without a restart
-  const { username, password } = getCredentials();
-
-  const status = await authStatus();
-  log("Auth status:", JSON.stringify(status));
-
-  if (MODE === "check") {
-    process.exit(status.authenticated ? 0 : 1);
-  }
-
-  if (MODE === "once") {
-    if (status.authenticated) {
-      log("Already authenticated — nothing to do.");
-      process.exit(0);
-    }
-    process.exit((await loginOnce(username, password)) ? 0 : 1);
-  }
-
-  // --watch
-  log(`Watchdog running — checking every ${CHECK_INTERVAL_MS / 60000} min.`);
-  let backoffUntil = 0;
   for (;;) {
-    const current = await authStatus();
-    if (current.authenticated) {
-      backoffUntil = 0;
-      await new Promise((r) => setTimeout(r, CHECK_INTERVAL_MS));
-      continue;
-    }
-
-    // Connection-level failures only (no HTTP response) = gateway down.
-    if (current.error && current.httpStatus == null) {
-      log("Gateway unreachable:", current.error, "— retrying later.");
-      await new Promise((r) => setTimeout(r, CHECK_INTERVAL_MS));
-      continue;
-    }
-
-    // HTTP 401/403 (or any non-JSON response) = session expired → log in.
-    if (current.httpStatus != null) {
-      log("Session not authenticated (HTTP", current.httpStatus + ") — will log in.");
-    }
-
-    if (Date.now() < backoffUntil) {
-      await new Promise((r) => setTimeout(r, CHECK_INTERVAL_MS));
-      continue;
-    }
-
-    log("Session expired — attempting login...");
-    let ok;
-    try {
-      const creds = getCredentials();
-      ok = await loginOnce(creds.username, creds.password);
-    } catch (err) {
-      log("Login error:", err.message);
-      ok = false;
-    }
-    if (ok) {
-      backoffUntil = 0;
-    } else {
-      log("Login failed — backing off for 30 min.");
-      backoffUntil = Date.now() + FAIL_BACKOFF_MS;
+    const s = await authStatus();
+    log(s.authenticated ? "Session: authenticated" : "Session: not authenticated");
+    if (!s.authenticated) {
+      try {
+        await login();
+      } catch (e) {
+        log("Login error:", e.message);
+      }
     }
     await new Promise((r) => setTimeout(r, CHECK_INTERVAL_MS));
   }
 }
 
-main().catch((err) => fatal("Fatal:", err.message));
+main().catch((e) => {
+  log("Fatal:", e.message);
+  process.exit(1);
+});
