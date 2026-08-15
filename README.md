@@ -97,12 +97,9 @@ Visit [http://localhost:3000](http://localhost:3000)
 
 ## Deployment
 
-Two deployment options: **Docker Compose** (simplest, includes the IBKR gateway) or **manual standalone + systemd** (e.g. NixOS).
+The production deployment is **Docker Compose**, built and run on the server itself — there is no local build or file-copy step. (The pre-Docker standalone workflow is preserved below for reference.)
 
-> **Migrating an existing standalone/NixOS production deployment to Docker?**
-> Follow [docs/migration-to-docker.md](docs/migration-to-docker.md) — it covers importing the production database and baselining the Prisma migration history.
-
-### Option A: Docker Compose (recommended)
+### Docker Compose
 
 The compose stack runs four services: a one-shot `migrate` container (applies Prisma migrations), the `app` (Next.js standalone), the `ibkr-gateway` (Client Portal Gateway sidecar), and `ibkr-login` (headless auto-login watchdog for the gateway).
 
@@ -123,8 +120,6 @@ docker compose up -d --build
 - SQLite lives in the bind-mounted `DATA_DIR` (default `/var/lib/spending-tracker/data`); gateway logs in the `ibkr-logs` volume.
 - The app talks to the gateway at `https://ibkr-gateway:5000` (set automatically in compose).
 - Useful overrides: `DATA_DIR`, `APP_PORT`, `IBKR_PORT`, `TZ` (default `Europe/Madrid`).
-
-> Building images on the server is fine with Docker (the NixOS note below only applies to bare-metal builds).
 
 ### IBKR Gateway (Interactive Brokers)
 
@@ -171,11 +166,12 @@ WantedBy=multi-user.target
 
 Set `IBKR_GATEWAY_URL="https://localhost:5000"` in the app environment when the gateway runs on the same host.
 
-### Option B: Standalone + systemd (NixOS)
+<details>
+<summary>Legacy: standalone + systemd (pre-Docker)</summary>
 
-> **Note:** `prisma generate` requires downloading native engine binaries which are unavailable on some platforms (e.g. NixOS). Always **build on your dev machine** and deploy the compiled artifacts — never build on the production server.
+This was the deployment before Docker: the Next.js standalone bundle was built on a dev machine, rsynced to the server, and run by a systemd unit. Kept for reference only.
 
-#### 1. Build on dev
+#### Build on dev
 
 ```bash
 git pull
@@ -187,7 +183,7 @@ cp -r .next/static .next/standalone/.next/
 cp -r public .next/standalone/
 ```
 
-#### 2. Deploy to server
+#### Deploy to server
 
 ```bash
 rsync -av --delete .next/standalone/ user@your-server:/var/lib/spending-tracker/app/.next/standalone/
@@ -196,7 +192,7 @@ ssh user@your-server "systemctl restart spending-tracker"
 
 Replace `user@your-server` with your actual SSH user and host/IP. Use `--rsync-path="sudo rsync"` if your user needs sudo to write to the target directory.
 
-#### 3. Database
+#### Database
 
 The SQLite database lives outside the standalone bundle and persists across deploys. Set `DATABASE_URL` to an **absolute path** in your service environment so it resolves correctly regardless of the working directory:
 
@@ -227,22 +223,10 @@ Then seed default categories:
 pnpm db:seed
 ```
 
-### NixOS
-
-`nix/spending-tracker.nix` is a drop-in NixOS module for the **Docker-based** deployment: it enables Docker, generates the compose `.env` from the agenix secret, manages the data directory permissions, runs the stack via a systemd unit, and keeps the nginx reverse proxy. Import it from your `configuration.nix`:
-
-```nix
-imports = [ /var/lib/spending-tracker/app/nix/spending-tracker.nix ];
-```
-
-After updating: `sudo nixos-rebuild switch`. See [docs/migration-to-docker.md](docs/migration-to-docker.md) for migrating an existing standalone deployment.
-
-<details>
-<summary>Legacy standalone+systemd notes (pre-Docker)</summary>
+#### NixOS notes
 
 - The systemd service runs `node server.js` from `.next/standalone`
 - `DATABASE_URL` must be an absolute path (relative paths resolve against the working directory)
-- No Postgres dependency — remove `requires = ["postgresql.service"]` from the service unit
 - The database file and the standalone bundle are separate; rsync only touches the bundle
 - `prisma generate` can't run on NixOS — build on a dev machine and rsync the standalone bundle
 
@@ -294,10 +278,6 @@ Write a quick script or use `psql` to export and re-import, handling the type co
 spending-tracker/
 ├── ibkr/                       # IBKR gateway: Dockerfile + conf.yaml (binaries fetched at build time)
 ├── scripts/ibkr-login/         # Headless gateway auto-login watchdog (Docker)
-├── nix/                        # NixOS deployment configuration
-│   └── spending-tracker.nix    # NixOS module (Docker-based deployment)
-├── docs/
-│   └── migration-to-docker.md  # Production migration runbook
 ├── scripts/                    # Migration test harness (test:migration)
 ├── prisma/
 │   ├── schema.prisma           # Database schema (SQLite)
@@ -349,19 +329,16 @@ spending-tracker/
 
 ## Updating
 
+Deploys are just a git pull + rebuild on the server:
+
 ```bash
-# Pull latest changes
+cd /var/lib/spending-tracker/app
+
 git pull
-
-# Update dependencies
-pnpm install
-
-# Apply any new migrations
-pnpm db:migrate
-
-# Rebuild for production
-pnpm build
+docker compose up -d --build
 ```
+
+The `migrate` container applies any new Prisma migrations automatically before the app starts, and the other images rebuild with the new code. There is nothing to do on the dev machine — no `pnpm install`, no `pnpm build`, no rsync.
 
 ## License
 
