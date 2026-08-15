@@ -53,5 +53,20 @@ services:
       - ibkr-logs:/gateway/logs
     restart: unless-stopped
 
+  # Headless auto-login for the gateway (IBKR's SSO flow only accepts
+  # localhost origins, so this runs with host networking). Reads
+  # IBKR_USERNAME/IBKR_PASSWORD from the agenix secrets file; the only manual
+  # step is tapping the IB Key push on your phone. See scripts/ibkr-login/.
+  ibkr-login:
+    build: ./scripts/ibkr-login
+    network_mode: host
+    environment:
+      GATEWAY_URL: https://localhost:5000
+      SECRETS_FILE: ${IBKR_LOGIN_SECRETS_FILE:-/run/agenix/spending-tracker}
+      CHECK_INTERVAL_MIN: ${IBKR_LOGIN_CHECK_INTERVAL_MIN:-10}
+    volumes:
+      - ${IBKR_LOGIN_SECRETS_FILE:-/run/agenix/spending-tracker}:/run/agenix/spending-tracker:ro
+    restart: unless-stopped
+
 volumes:
   ibkr-logs:
