@@ -93,27 +93,45 @@ async function login() {
       const s = await authStatus();
       if (s.authenticated) {
         log("Authenticated");
-        return;
+        return true;
       }
     }
     log("Not authenticated after 5 minutes");
+    return false;
   } finally {
     await browser.close();
   }
 }
 
 async function main() {
+  let consecutiveFailures = 0;
   for (;;) {
     const s = await authStatus();
     log(s.authenticated ? "Session: authenticated" : "Session: not authenticated");
     if (!s.authenticated) {
+      let ok = false;
       try {
-        await login();
+        ok = await login();
       } catch (e) {
         log("Login error:", e.message);
       }
+      consecutiveFailures = ok ? 0 : consecutiveFailures + 1;
+    } else {
+      consecutiveFailures = 0;
     }
-    await new Promise((r) => setTimeout(r, CHECK_INTERVAL_MS));
+
+    // After failed attempts, back off hard — every attempt fires an IB Key
+    // push, and rapid retries trigger IBKR cooldowns that break approvals.
+    const backoffMs =
+      consecutiveFailures === 0
+        ? CHECK_INTERVAL_MS
+        : Math.min(consecutiveFailures * 30 * 60 * 1000, 4 * 60 * 60 * 1000);
+    if (consecutiveFailures > 0) {
+      log(
+        `Backing off ${Math.round(backoffMs / 60000)} min after ${consecutiveFailures} failed attempt(s)`
+      );
+    }
+    await new Promise((r) => setTimeout(r, backoffMs));
   }
 }
 
