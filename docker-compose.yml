@@ -47,8 +47,11 @@ services:
   ibkr-gateway:
     build:
       context: ./ibkr
+    # Host-only: only the gateway host (watchdog, SSH tunnel login) can reach
+    # it. The app talks to it over the internal bridge network, which doesn't
+    # use this published port. LAN exposure is intentionally zero.
     ports:
-      - "${IBKR_PORT:-5000}:5000"
+      - "127.0.0.1:${IBKR_PORT:-5000}:5000"
     volumes:
       - ibkr-logs:/gateway/logs
     healthcheck:
