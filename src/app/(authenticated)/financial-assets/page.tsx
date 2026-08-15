@@ -1,6 +1,6 @@
 import { auth } from "@/lib/server/auth";
 import { isAlphaVantageConfigured } from "@/lib/server/alphavantage";
-import { isIbkrConfigured, getIbkrClient, getIbkrGatewayPublicUrl } from "@/lib/server/ibkr";
+import { isIbkrConfigured, getIbkrClient } from "@/lib/server/ibkr";
 import { isIndexaConfigured } from "@/lib/server/indexa";
 import { getPortfolioOverview, getCombinedPortfolioHistory } from "@/lib/server/portfolio";
 import { FinancialAssetsContent } from "./financial-assets-content";
@@ -48,7 +48,6 @@ export default async function FinancialAssetsPage() {
           indexa: isIndexaConfigured(),
           ibkr: ibkrEnabled,
           ibkrAuthenticated,
-          ibkrGatewayUrl: getIbkrGatewayPublicUrl(),
         }}
       />
     </div>

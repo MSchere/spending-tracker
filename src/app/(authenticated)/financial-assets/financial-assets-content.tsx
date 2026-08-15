@@ -34,7 +34,6 @@ import {
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PortfolioEvolutionChart } from "@/components/charts/portfolio-evolution-chart";
 import { HoldingsChart } from "@/components/charts/holdings-chart";
 import { useTableSort } from "@/hooks/use-table-sort";
@@ -46,7 +45,6 @@ import {
   TrendingUp,
   TrendingDown,
   RefreshCw,
-  AlertTriangle,
   Search,
   Wallet,
   DollarSign,
@@ -90,7 +88,6 @@ interface Integrations {
   indexa: boolean;
   ibkr: boolean;
   ibkrAuthenticated: boolean;
-  ibkrGatewayUrl: string | null;
 }
 
 interface FinancialAssetsContentProps {
@@ -365,28 +362,6 @@ export function FinancialAssetsContent({
 
   return (
     <>
-      {integrations.ibkr && !integrations.ibkrAuthenticated && (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            IBKR gateway session expired or unreachable. Open{" "}
-            {integrations.ibkrGatewayUrl ? (
-              <a
-                href={integrations.ibkrGatewayUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium underline"
-              >
-                {integrations.ibkrGatewayUrl}
-              </a>
-            ) : (
-              "the IBKR gateway"
-            )}{" "}
-            in a browser and log in again, then sync.
-          </AlertDescription>
-        </Alert>
-      )}
-
       <div className="grid gap-4 md:grid-cols-3">
         <SummaryCard
           title="Portfolio Value"

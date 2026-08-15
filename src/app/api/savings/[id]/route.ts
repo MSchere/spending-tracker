@@ -32,7 +32,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const VALID_TYPES = ["EMERGENCY_FUND", "SAVINGS", "INDEX_FUND", "ETF", "STOCK", "CRYPTO"];
     if (type !== undefined && !VALID_TYPES.includes(type)) {
-      return NextResponse.json({ error: `Invalid type. Must be one of: ${VALID_TYPES.join(", ")}` }, { status: 400 });
+      return NextResponse.json(
+        { error: `Invalid type. Must be one of: ${VALID_TYPES.join(", ")}` },
+        { status: 400 }
+      );
     }
 
     const updateData: {

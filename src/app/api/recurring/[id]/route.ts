@@ -31,7 +31,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const validFrequencies = ["WEEKLY", "BIWEEKLY", "MONTHLY", "BIMONTHLY", "QUARTERLY", "YEARLY"];
 
     if (type !== undefined && !validTypes.includes(type)) {
-      return NextResponse.json({ error: `Invalid type. Must be one of: ${validTypes.join(", ")}` }, { status: 400 });
+      return NextResponse.json(
+        { error: `Invalid type. Must be one of: ${validTypes.join(", ")}` },
+        { status: 400 }
+      );
     }
     if (frequency !== undefined && !validFrequencies.includes(frequency)) {
       return NextResponse.json({ error: "Invalid frequency" }, { status: 400 });

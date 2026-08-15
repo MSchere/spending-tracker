@@ -26,8 +26,7 @@ const fs = require("fs");
 
 const GATEWAY_URL = process.env.GATEWAY_URL || "https://localhost:5000";
 const SECRETS_FILE = process.env.SECRETS_FILE || "/run/agenix/spending-tracker";
-const CHECK_INTERVAL_MS =
-  (parseInt(process.env.CHECK_INTERVAL_MIN || "10", 10) || 10) * 60 * 1000;
+const CHECK_INTERVAL_MS = (parseInt(process.env.CHECK_INTERVAL_MIN || "10", 10) || 10) * 60 * 1000;
 const LOGIN_HOUR = parseInt(process.env.LOGIN_HOUR || "12", 10) || 12;
 
 const ONCE = process.argv[2] === "--once";
@@ -118,6 +117,7 @@ async function login() {
 
 async function main() {
   let lastAttemptDay = "";
+  let firstRun = true;
 
   if (ONCE) {
     const s = await authStatus();
@@ -137,8 +137,11 @@ async function main() {
     } else {
       const now = new Date();
       const today = now.toISOString().slice(0, 10);
-      if (now.getHours() === LOGIN_HOUR && lastAttemptDay !== today) {
-        log("Scheduled login attempt");
+      // Attempt immediately on startup (deploys/reboots kill the session),
+      // then fall back to the daily schedule.
+      const due = firstRun || (now.getHours() === LOGIN_HOUR && lastAttemptDay !== today);
+      if (due) {
+        log(firstRun ? "Initial login attempt on startup" : "Scheduled login attempt");
         try {
           await login();
         } catch (e) {
@@ -150,6 +153,7 @@ async function main() {
         log(`Session: not authenticated (next attempt at ${LOGIN_HOUR}:00)`);
       }
     }
+    firstRun = false;
     await new Promise((r) => setTimeout(r, CHECK_INTERVAL_MS));
   }
 }

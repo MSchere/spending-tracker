@@ -129,7 +129,11 @@ export function SavingsGoalsList({ savingsGoals }: SavingsGoalsListProps) {
       resetForm();
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : `Failed to ${editingGoal ? "update" : "create"} goal`);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : `Failed to ${editingGoal ? "update" : "create"} goal`
+      );
     } finally {
       setIsLoading(false);
     }

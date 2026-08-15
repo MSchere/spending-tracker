@@ -75,8 +75,6 @@ ALPHA_VANTAGE_API_KEY="your-api-key"
 
 # Interactive Brokers (optional — requires the Client Portal Gateway, see below)
 IBKR_GATEWAY_URL="https://localhost:5000"
-# Browser-facing gateway URL for re-login links in the UI (Docker deployments)
-# IBKR_GATEWAY_PUBLIC_URL="https://192.168.10.150:5000"
 ```
 
 ### 3. Initialize Database
@@ -143,8 +141,6 @@ Only our customized `ibkr/root/conf.yaml` is tracked in git (docker-network IPs 
 ssh -N -L 5000:127.0.0.1:5000 root@<server>
 # then open https://localhost:5000 in a browser
 ```
-
-**UI re-login links:** when the app runs in Docker, `IBKR_GATEWAY_URL` points at the internal service name. Set `IBKR_GATEWAY_PUBLIC_URL` to the browser-facing gateway URL (e.g. `https://192.168.10.150:5000`) so the settings page and banners link somewhere reachable.
 
 Running it without Docker (e.g. on a NixOS/systemd host), after fetching the binaries as shown above:
 

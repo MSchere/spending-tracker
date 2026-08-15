@@ -23,7 +23,6 @@ import {
   Coins,
   Settings,
   Landmark,
-  ExternalLink,
 } from "lucide-react";
 import { WiseIcon } from "@/components/icons/wise-icon";
 import { toast } from "sonner";
@@ -286,19 +285,6 @@ export function SettingsForm({
           {ibkrStatus.configured && (
             <>
               <div className="flex items-center justify-between">
-                <span className="text-sm">Gateway URL</span>
-                <a
-                  href={ibkrStatus.gatewayUrl ?? "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  {ibkrStatus.gatewayUrl}
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-
-              <div className="flex items-center justify-between">
                 <span className="text-sm">Session</span>
                 <Badge variant={ibkrStatus.authenticated ? "default" : "destructive"}>
                   {ibkrStatus.authenticated ? "Authenticated" : "Login Required"}
@@ -325,8 +311,9 @@ export function SettingsForm({
 
               {ibkrStatus.reachable && !ibkrStatus.authenticated && (
                 <p className="text-sm text-muted-foreground">
-                  The gateway is running but the brokerage session expired. Open the gateway URL
-                  above, log in with your IBKR credentials and 2FA, then sync again.
+                  The gateway is running but the brokerage session expired. The auto-login watchdog
+                  re-authenticates daily (or on restart) — tap the IB Key push on your phone when it
+                  arrives, then sync.
                 </p>
               )}
 
